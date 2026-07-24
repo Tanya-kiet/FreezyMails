@@ -16,7 +16,14 @@ export async function POST(request: Request, props: { params: Promise<{ id: stri
 
     const account = await prisma.emailAccount.update({
       where: { id: params.id, userId: user.id },
-      data: { isWarmupEnabled }
+      data: { isWarmupEnabled },
+      select: {
+        id: true,
+        label: true,
+        fromEmail: true,
+        isWarmupEnabled: true,
+        healthScore: true,
+      }
     })
 
     return NextResponse.json(account)
