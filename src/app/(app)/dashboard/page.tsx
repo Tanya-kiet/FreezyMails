@@ -4,6 +4,7 @@ import { SendingVolumeChart } from "./_components/SendingVolumeChart";
 import { getUser } from "@/lib/supabase";
 import Link from "next/link";
 import { Card } from "@/components/ui/card";
+import { unstable_cache } from "next/cache";
 
 function timeAgo(date: Date) {
   const diff = new Date().getTime() - date.getTime();
@@ -29,50 +30,84 @@ export default async function Dashboard() {
   const sevenDaysAgo = new Date(now);
   sevenDaysAgo.setDate(now.getDate() - 7);
 
-  // Fetch Data
-  const fetchData = async () => {
-    return await Promise.all([
-      prisma.emailAccount.findMany({
-        where: { userId: user.id, isActive: true },
-      }),
-      prisma.campaign.findMany({
-        where: { userId: user.id },
-        include: { _count: { select: { recipients: true } } },
-      }),
-      prisma.mailEvent.findMany({
-        where: {
-          campaign: { userId: user.id },
-          occurredAt: { gte: sevenDaysAgo },
-        },
-      }),
-      prisma.recipient.findMany({
-        where: { campaign: { userId: user.id } },
-        include: { mailEvents: true, campaign: true, replies: true },
-      }),
-    ]);
-  };
+  const getCachedData = unstable_cache(
+    async (userId: string) => {
+      const sevenDaysAgoDate = new Date();
+      sevenDaysAgoDate.setDate(sevenDaysAgoDate.getDate() - 7);
 
-  let data: Awaited<ReturnType<typeof fetchData>> | null = null;
+      return await Promise.all([
+        prisma.emailAccount.findMany({
+          where: { userId, isActive: true },
+        }),
+        prisma.campaign.findMany({
+          where: { userId },
+          include: { _count: { select: { recipients: true } } },
+        }),
+        prisma.mailEvent.findMany({
+          where: {
+            campaign: { userId },
+            occurredAt: { gte: sevenDaysAgoDate },
+          },
+        }),
+        prisma.recipient.groupBy({
+          by: ["campaignId", "status"],
+          where: { campaign: { userId } },
+          _count: { _all: true },
+        }),
+        prisma.recipient.findMany({
+          where: {
+            campaign: { userId },
+            status: { in: ["FAILED", "BOUNCED"] },
+            createdAt: { gt: sevenDaysAgoDate },
+          },
+          include: { campaign: true },
+          orderBy: { createdAt: "desc" },
+          take: 20,
+        }),
+        prisma.template.count({ where: { userId } }),
+        prisma.mailingList.count({ where: { userId } }),
+      ]);
+    },
+    ["dashboard-data", user.id],
+    { revalidate: 30, tags: ["dashboard"] },
+  );
+
+  let data: Awaited<ReturnType<typeof getCachedData>> | null = null;
 
   try {
     console.log("[Dashboard] Attempting to connect to the database...");
-    data = await fetchData();
+    data = await getCachedData(user.id);
     console.log("[Dashboard] Successfully connected and fetched data from DB!");
   } catch (error) {
-    console.error("[Dashboard] FATAL DATABASE ERROR: Failed to connect or query database:", error);
+    console.error(
+      "[Dashboard] FATAL DATABASE ERROR: Failed to connect or query database:",
+      error,
+    );
   }
 
   if (!data) {
     return (
       <div className="p-8 mt-12 text-center text-red-500 bg-red-500/10 rounded-md border border-red-500/20 max-w-2xl mx-auto">
-        <h2 className="text-lg font-semibold mb-2">Database Connection Failed</h2>
+        <h2 className="text-lg font-semibold mb-2">
+          Database Connection Failed
+        </h2>
         <p>We could not connect to the database to load your dashboard.</p>
-        <p className="text-sm mt-2 opacity-80">Please check your Vercel logs for more details.</p>
+        <p className="text-sm mt-2 opacity-80">
+          Please check your Vercel logs for more details.
+        </p>
       </div>
     );
   }
 
-  const [accounts, campaigns, eventsLast7Days, recipients] = data;
+  const [
+    accounts,
+    campaigns,
+    eventsLast7Days,
+    recipientStats,
+    recentFailed,
+    templateCount,
+    mailingListCount,
+  ] = data;
 
   // --- YC-STYLE STAT CALCULATIONS ---
 
@@ -86,10 +121,10 @@ export default async function Dashboard() {
         )
       : 0;
 
-  const warmingCount = activeAccounts.filter(
-    (a) => a.isWarmupEnabled && a.warmupDay < 14,
+  const failedMailsCount = eventsLast7Days.filter(
+    (e) => e.type === "FAILED",
   ).length;
-  const readyCount = activeAccounts.length - warmingCount;
+  const readyCount = activeAccounts.length;
 
   const totalSentEvents = eventsLast7Days.filter(
     (e) => e.type === "SENT",
@@ -126,35 +161,39 @@ export default async function Dashboard() {
       }
     });
 
+  // --- RECENT CAMPAIGNS ---
+  const sortedCampaigns = [...campaigns].sort((a, b) => {
+    const aActive = a.status === "SENDING" || a.status === "SCHEDULED" ? 1 : 0;
+    const bActive = b.status === "SENDING" || b.status === "SCHEDULED" ? 1 : 0;
+    if (aActive !== bActive) return bActive - aActive;
+    return new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime();
+  });
 
-  // --- ACTIVE CAMPAIGNS ---
-  const activeCampaigns = campaigns
-    .filter((c) => c.status === "SENDING" || c.status === "SCHEDULED")
-    .map((c) => {
-      const campRecipients = recipients.filter((r) => r.campaignId === c.id);
-      const total = campRecipients.length;
-      const sent = campRecipients.filter(
+  const recentCampaigns = sortedCampaigns.slice(0, 3).map((c) => {
+    const stats = recipientStats.filter((r) => r.campaignId === c.id);
+    const total = stats.reduce((acc, curr) => acc + curr._count._all, 0);
+    const sent = stats
+      .filter(
         (r) =>
           r.status === "SENT" ||
           r.status === "BOUNCED" ||
           r.status === "FAILED",
-      ).length;
-      const progress = total > 0 ? Math.round((sent / total) * 100) : 0;
-      return {
-        id: c.id,
-        name: c.name,
-        status: c.status,
-        progress,
-        sent,
-        total,
-      };
-    })
-    .sort((a, b) => b.sent - a.sent)
-    .slice(0, 5);
+      )
+      .reduce((acc, curr) => acc + curr._count._all, 0);
+    const progress = total > 0 ? Math.round((sent / total) * 100) : 0;
+    return {
+      id: c.id,
+      name: c.name,
+      status: c.status,
+      progress,
+      sent,
+      total,
+    };
+  });
 
   // --- FEED GENERATION (Actionable Audit Log) ---
   const feedItems: {
-    type: "draft" | "fix";
+    type: "draft" | "fix" | "setup";
     title: string;
     subtitle: string;
     date: Date;
@@ -162,6 +201,52 @@ export default async function Dashboard() {
     link: string;
   }[] = [];
 
+  // 1. Onboarding / Setup Items
+  if (accounts.length === 0) {
+    feedItems.push({
+      type: "fix",
+      title: "Connect Email Account",
+      subtitle: "You need an email account to start sending.",
+      date: new Date(now.getTime() + 4000), // Push to top
+      initial: "A",
+      link: "/accounts",
+    });
+  }
+
+  if (templateCount === 0) {
+    feedItems.push({
+      type: "setup",
+      title: "Create a Template",
+      subtitle: "Add an email template for your campaigns.",
+      date: new Date(now.getTime() + 3000),
+      initial: "T",
+      link: "/templates",
+    });
+  }
+
+  if (mailingListCount === 0) {
+    feedItems.push({
+      type: "setup",
+      title: "Add an Audience",
+      subtitle: "Create a mailing list to import contacts.",
+      date: new Date(now.getTime() + 2000),
+      initial: "M",
+      link: "/audience",
+    });
+  }
+
+  if (campaigns.length === 0) {
+    feedItems.push({
+      type: "setup",
+      title: "Create your first Campaign",
+      subtitle: "Setup a campaign to start sending.",
+      date: new Date(now.getTime() + 1000),
+      initial: "C",
+      link: "/campaigns/new",
+    });
+  }
+
+  // 2. Draft Campaigns
   const drafts = campaigns.filter((c) => c.status === "DRAFT");
   for (const draft of drafts) {
     feedItems.push({
@@ -174,12 +259,6 @@ export default async function Dashboard() {
     });
   }
 
-  const failedRecipients = recipients.filter(
-    (r) => r.status === "FAILED" || r.status === "BOUNCED",
-  );
-  const recentFailed = failedRecipients.filter((r) =>
-    r.createdAt ? new Date(r.createdAt) > sevenDaysAgo : false,
-  );
   for (const r of recentFailed) {
     feedItems.push({
       type: "fix",
@@ -277,9 +356,9 @@ export default async function Dashboard() {
                 </span>
               </div>
               <div className="flex justify-between items-center text-sm">
-                <span className="text-text-muted">Warming Up</span>
+                <span className="text-text-muted">Failed Mails (7d)</span>
                 <span className="font-medium text-text-primary">
-                  {warmingCount}
+                  {failedMailsCount}
                 </span>
               </div>
             </div>
@@ -288,11 +367,11 @@ export default async function Dashboard() {
 
         {/* TWO-COLUMN GRID */}
         <div className="grid grid-cols-1 lg:grid-cols-5 gap-4">
-          {/* LEFT COLUMN: ACTIVE CAMPAIGNS */}
+          {/* LEFT COLUMN: RECENT CAMPAIGNS */}
           <div className="lg:col-span-3 space-y-4">
             <div className="flex justify-between items-center px-1">
               <h2 className="text-xs font-semibold tracking-widest text-text-muted uppercase">
-                Active Campaigns
+                Recent Campaigns
               </h2>
               <Link
                 href="/campaigns"
@@ -303,12 +382,12 @@ export default async function Dashboard() {
             </div>
 
             <Card className="skeu-card p-0 divide-y divide-border-subtle overflow-hidden">
-              {activeCampaigns.length === 0 ? (
+              {recentCampaigns.length === 0 ? (
                 <div className="p-8 text-center text-text-muted">
-                  <p>No campaigns currently sending.</p>
+                  <p>No campaigns found.</p>
                 </div>
               ) : (
-                activeCampaigns.map((camp) => (
+                recentCampaigns.map((camp) => (
                   <div
                     key={camp.id}
                     className="p-4 flex items-center justify-between hover:bg-bg-subtle/30 transition-colors"
@@ -316,7 +395,13 @@ export default async function Dashboard() {
                     <div className="min-w-0 flex-1">
                       <div className="flex items-center gap-2 mb-1">
                         <div
-                          className={`w-2 h-2 rounded-full ${camp.status === "SENDING" ? "bg-emerald-500 animate-pulse" : "bg-amber-500"}`}
+                          className={`w-2 h-2 rounded-full ${
+                            camp.status === "SENDING"
+                              ? "bg-emerald-500 animate-pulse"
+                              : camp.status === "SCHEDULED"
+                                ? "bg-amber-500"
+                                : "bg-text-muted"
+                          }`}
                         ></div>
                         <h3 className="text-sm font-semibold text-text-primary truncate">
                           {camp.name}
@@ -364,9 +449,11 @@ export default async function Dashboard() {
                   >
                     <div
                       className={`w-6 h-6 rounded-md flex items-center justify-center font-bold text-xs shrink-0 ${
-                        item.type === "draft"
-                          ? "bg-bg-subtle text-text-muted"
-                          : "bg-danger-bg text-danger-text"
+                        item.type === "fix"
+                          ? "bg-danger-bg text-danger-text"
+                          : item.type === "setup"
+                            ? "bg-primary/20 text-primary"
+                            : "bg-bg-subtle text-text-muted"
                       }`}
                     >
                       {item.initial}

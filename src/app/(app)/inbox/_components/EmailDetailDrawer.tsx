@@ -55,7 +55,13 @@ export default function EmailDetailDrawer({
   const [snippetsOpen, setSnippetsOpen] = useState(false);
   const [templatesOpen, setTemplatesOpen] = useState(false);
   const [templates, setTemplates] = useState<
-    { id: string; name: string; subject: string; body: string; [key: string]: unknown }[]
+    {
+      id: string;
+      name: string;
+      subject: string;
+      body: string;
+      [key: string]: unknown;
+    }[]
   >([]);
   const [aiChips, setAiChips] = useState<string[]>([]);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -298,8 +304,6 @@ export default function EmailDetailDrawer({
   const clicks = mailEvents.filter(
     (e: { type: string }) => e.type === "CLICKED",
   ).length;
-
-
 
   const handleCopyDraft = () => {
     if (!responseText) return;

@@ -2,7 +2,11 @@ import { Trash2, Plus, Check, ChevronsUpDown, Search } from "lucide-react";
 import { useState } from "react";
 import { useCampaignStore } from "@/stores/useCampaignStore";
 import { Button } from "@/components/ui/button";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
 import { CampaignWizardTemplate } from "./Step1Details";
 import {
   Attachment,
@@ -35,10 +39,12 @@ export default function Step3ABVariants({
     useCampaignStore();
 
   const [searchQuery, setSearchQuery] = useState("");
-  const [openTemplateSelect, setOpenTemplateSelect] = useState<Record<number, boolean>>({});
+  const [openTemplateSelect, setOpenTemplateSelect] = useState<
+    Record<number, boolean>
+  >({});
 
   const filteredTemplates = templates.filter((t) =>
-    t.name.toLowerCase().includes(searchQuery.toLowerCase())
+    t.name.toLowerCase().includes(searchQuery.toLowerCase()),
   );
 
   const selectedTemplate = templates.find((t) => t.id === templateId);
@@ -97,7 +103,12 @@ export default function Step3ABVariants({
                       </label>
                       <Popover
                         open={openTemplateSelect[i]}
-                        onOpenChange={(isOpen) => setOpenTemplateSelect({ ...openTemplateSelect, [i]: isOpen })}
+                        onOpenChange={(isOpen) =>
+                          setOpenTemplateSelect({
+                            ...openTemplateSelect,
+                            [i]: isOpen,
+                          })
+                        }
                       >
                         <PopoverTrigger asChild>
                           <Button
@@ -105,11 +116,16 @@ export default function Step3ABVariants({
                             role="combobox"
                             className="skeu-input w-full flex justify-between items-center px-4 font-normal"
                           >
-                            <span className="truncate">Select template to load...</span>
+                            <span className="truncate">
+                              Select template to load...
+                            </span>
                             <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
                           </Button>
                         </PopoverTrigger>
-                        <PopoverContent className="w-[var(--radix-popover-trigger-width)] p-0 border border-border-subtle bg-bg-base shadow-lg" align="start">
+                        <PopoverContent
+                          className="w-[var(--radix-popover-trigger-width)] p-0 border border-border-subtle bg-bg-base shadow-lg"
+                          align="start"
+                        >
                           <div className="flex items-center border-b border-border-subtle px-3">
                             <Search className="mr-2 h-4 w-4 shrink-0 opacity-50" />
                             <input
@@ -121,7 +137,9 @@ export default function Step3ABVariants({
                           </div>
                           <div className="max-h-[200px] overflow-y-auto p-1">
                             {filteredTemplates.length === 0 ? (
-                              <div className="py-6 text-center text-sm text-text-muted">No template found.</div>
+                              <div className="py-6 text-center text-sm text-text-muted">
+                                No template found.
+                              </div>
                             ) : (
                               filteredTemplates.map((t) => (
                                 <div
@@ -130,14 +148,20 @@ export default function Step3ABVariants({
                                     const newTvs = [...templateVariants];
                                     newTvs[i].body = t.body;
                                     if (newTvs[i].subjectVariants.length > 0) {
-                                      newTvs[i].subjectVariants[0].subject = t.subject;
+                                      newTvs[i].subjectVariants[0].subject =
+                                        t.subject;
                                     }
                                     setTemplateVariants(newTvs);
-                                    setOpenTemplateSelect({ ...openTemplateSelect, [i]: false });
+                                    setOpenTemplateSelect({
+                                      ...openTemplateSelect,
+                                      [i]: false,
+                                    });
                                   }}
                                   className="relative flex cursor-pointer select-none items-center justify-between rounded-md px-3 py-2.5 text-sm outline-none transition-colors hover:bg-bg-subtle text-text-primary"
                                 >
-                                  <span className="truncate pr-2">{t.name}</span>
+                                  <span className="truncate pr-2">
+                                    {t.name}
+                                  </span>
                                 </div>
                               ))
                             )}
@@ -191,25 +215,27 @@ export default function Step3ABVariants({
                 {selectedTemplate &&
                   Array.isArray(selectedTemplate.attachments) &&
                   selectedTemplate.attachments.length > 0 && (
-                      <div className="mb-6">
-                        <label className="block text-xs font-bold text-text-muted uppercase tracking-wider mb-2">
-                          Attachments
-                        </label>
-                        <AttachmentGroup className="w-full pb-2">
-                          {selectedTemplate.attachments.map(
-                            (att, attIdx: number) => (
-                              <Attachment key={attIdx} size="sm">
-                                <AttachmentMedia variant="icon">
-                                  {getFileIcon(att.filename)}
-                                </AttachmentMedia>
-                                <AttachmentContent>
-                                  <AttachmentTitle>{att.filename}</AttachmentTitle>
-                                </AttachmentContent>
-                              </Attachment>
-                            ),
-                          )}
-                        </AttachmentGroup>
-                      </div>
+                    <div className="mb-6">
+                      <label className="block text-xs font-bold text-text-muted uppercase tracking-wider mb-2">
+                        Attachments
+                      </label>
+                      <AttachmentGroup className="w-full pb-2">
+                        {selectedTemplate.attachments.map(
+                          (att, attIdx: number) => (
+                            <Attachment key={attIdx} size="sm">
+                              <AttachmentMedia variant="icon">
+                                {getFileIcon(att.filename)}
+                              </AttachmentMedia>
+                              <AttachmentContent>
+                                <AttachmentTitle>
+                                  {att.filename}
+                                </AttachmentTitle>
+                              </AttachmentContent>
+                            </Attachment>
+                          ),
+                        )}
+                      </AttachmentGroup>
+                    </div>
                   )}
 
                 <div className="bg-bg-base p-4 rounded-xl border border-border-subtle shadow-[inset_0_1px_2px_rgba(0,0,0,0.02)]">
@@ -241,7 +267,10 @@ export default function Step3ABVariants({
                   </div>
                   <div className="space-y-3">
                     {tv.subjectVariants.map((sv, j) => (
-                      <div key={j} className="flex gap-3 items-center group/sub">
+                      <div
+                        key={j}
+                        className="flex gap-3 items-center group/sub"
+                      >
                         <input
                           className="skeu-input py-1.5 px-3 text-sm flex-1 bg-bg-base disabled:opacity-75 disabled:bg-bg-subtle"
                           value={sv.subject}

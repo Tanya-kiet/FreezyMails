@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import Link from "next/link";
+import Image from "next/image";
 import { usePathname, useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 
@@ -14,10 +15,11 @@ import {
   BarChart2,
   Settings,
   Server,
-  ChevronLeft,
   ChevronRight,
   Users,
   Send,
+  Compass,
+  ChevronLeft,
 } from "lucide-react";
 import { createClientBrowser } from "@/lib/supabase-client";
 import { useInboxStore } from "@/stores/useInboxStore";
@@ -93,7 +95,7 @@ export default function Sidebar({ user }: { user: User }) {
             className={`h-16 flex items-center border-b border-border-subtle ${isCollapsed ? "justify-center px-0" : "px-6"}`}
           >
             <Logo
-            href="/"
+              href="/"
               showText={!isCollapsed}
               iconSize={24}
               textSize="text-xl"
@@ -168,42 +170,70 @@ export default function Sidebar({ user }: { user: User }) {
           <div
             className={`p-4 border-t border-border-subtle flex flex-col gap-3 ${isCollapsed ? "items-center px-2" : ""}`}
           >
-            <div className="w-full flex justify-center mb-1">
+            {/* Tour Button */}
+            {!isCollapsed ? (
               <button
                 onClick={() => setTourForceOpen(true)}
-                className={`text-xs text-primary-base font-medium hover:underline cursor-pointer ${isCollapsed ? "hidden" : "block"}`}
+                className="w-full flex items-center justify-center gap-2 py-2 px-3 rounded-lg border border-border-subtle bg-bg-subtle/50 text-xs text-text-primary font-medium hover:bg-bg-subtle transition-colors shadow-sm"
               >
+                <Compass size={14} className="text-primary-base" />
                 Take a tour
               </button>
-            </div>
-            <div
-              className={`flex items-center gap-3 ${isCollapsed ? "justify-center" : "px-2"} cursor-pointer`}
-              onClick={() => {
-                router.push("/settings");
-              }}
-            >
-              <div className="w-8 h-8 rounded-full bg-border-subtle flex items-center justify-center text-ice-700 font-bold -skeu-inset shrink-0">
-                {(user.email || "U").charAt(0).toUpperCase()}
-              </div>
-              {!isCollapsed && (
-                <div className="text-sm text-text-primary truncate font-medium">
-                  {user.user_metadata?.full_name || user.email}
-                </div>
-              )}
-            </div>
+            ) : (
+              <button
+                onClick={() => setTourForceOpen(true)}
+                className="w-10 h-10 flex flex-col items-center justify-center rounded-lg hover:bg-bg-subtle transition-colors text-text-muted hover:text-primary-base"
+                title="Take a tour"
+              >
+                <Compass size={18} />
+              </button>
+            )}
 
+            {/* Profile & Logout Box */}
             <div
-              className={`flex ${isCollapsed ? "flex-col" : ""} gap-2 w-full`}
+              className={`flex ${
+                isCollapsed
+                  ? "flex-col items-center gap-2"
+                  : "items-center justify-between pl-1 pr-1 py-1"
+              } rounded-xl ${!isCollapsed ? "border border-border-subtle bg-bg-base shadow-sm -skeu-inset" : ""}`}
             >
-              <Button
-                variant="none"
+              <div
+                className={`flex items-center gap-2 ${isCollapsed ? "justify-center" : ""} cursor-pointer flex-1 min-w-0`}
+                onClick={() => router.push("/settings")}
+                title="Settings"
+              >
+                <div className="w-8 h-8 rounded-full bg-border-subtle flex items-center justify-center text-primary-base font-bold shadow-inner shrink-0 overflow-hidden">
+                  <Image
+                    src={`https://api.dicebear.com/10.x/notionists/svg?seed=${encodeURIComponent(
+                      user.user_metadata?.full_name || user.email || "Aneka"
+                    )}`}
+                    alt="Avatar"
+                    width={32}
+                    height={32}
+                    className="w-full h-full object-cover"
+                    unoptimized
+                  />
+                </div>
+                {!isCollapsed && (
+                  <div className="flex-1 min-w-0 pr-2">
+                    <div className="text-[13px] text-text-primary truncate font-semibold leading-tight">
+                      {user.user_metadata?.full_name?.split(" ")[0] || "User"}
+                    </div>
+                    <div className="text-[10px] text-text-muted truncate leading-tight">
+                      {user.email}
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Logout Button */}
+              <button
                 onClick={handleSignOut}
-                className={`flex items-center justify-center gap-2 p-1.5 text-sm text-text-muted hover:text-danger-text hover:bg-danger-bg/20 transition-colors cursor-pointer rounded-lg ${!isCollapsed && "flex-1 border border-border-subtle"}`}
+                className={`flex items-center justify-center p-2 text-text-muted hover:text-danger-text hover:bg-danger-bg/20 transition-colors cursor-pointer rounded-lg shrink-0 ${isCollapsed ? "w-10 h-10 border border-border-subtle bg-bg-base" : ""}`}
                 title="Sign Out"
               >
-                <LogOut size={16} />
-                {!isCollapsed && <span>Sign Out</span>}
-              </Button>
+                <LogOut size={isCollapsed ? 18 : 14} />
+              </button>
             </div>
           </div>
         </div>

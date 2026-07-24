@@ -55,12 +55,18 @@ export default async function AnalyticsPage() {
     let failed = 0;
 
     // Sum up the grouped statuses for this campaign
-    recipientCounts.forEach((r: { campaignId: string | null; status: string; _count: { _all: number } }) => {
-      if (r.campaignId === c.id) {
-        if (r.status === "SENT") sent += r._count._all;
-        if (r.status === "FAILED") failed += r._count._all;
-      }
-    });
+    recipientCounts.forEach(
+      (r: {
+        campaignId: string | null;
+        status: string;
+        _count: { _all: number };
+      }) => {
+        if (r.campaignId === c.id) {
+          if (r.status === "SENT") sent += r._count._all;
+          if (r.status === "FAILED") failed += r._count._all;
+        }
+      },
+    );
 
     const opened = openMap.get(c.id) || 0;
     const replied = c._count.replies;

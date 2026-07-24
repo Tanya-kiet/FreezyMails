@@ -61,7 +61,12 @@ export default async function SentMailsPage({
   });
 
   const initialSentMails = events.map((evt) => {
-    const metadata = (evt.metadata as { accountId?: string; subject?: string; body?: string }) || {};
+    const metadata =
+      (evt.metadata as {
+        accountId?: string;
+        subject?: string;
+        body?: string;
+      }) || {};
     const dynamicData =
       (evt.recipient.dynamicData as Record<string, string>) || {};
 
@@ -95,7 +100,13 @@ export default async function SentMailsPage({
   // Fetch templates for follow-up
   const templates = await prisma.template.findMany({
     where: { userId: user.id },
-    select: { id: true, name: true, subject: true, body: true, variables: true },
+    select: {
+      id: true,
+      name: true,
+      subject: true,
+      body: true,
+      variables: true,
+    },
   });
 
   return (

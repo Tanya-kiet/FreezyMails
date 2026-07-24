@@ -6,7 +6,19 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { useState, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { Sparkles, Variable, Trash2, FileText, FileImage, File, FileSpreadsheet, FileArchive, FileAudio, FileVideo, FileCode } from "lucide-react";
+import {
+  Sparkles,
+  Variable,
+  Trash2,
+  FileText,
+  FileImage,
+  File,
+  FileSpreadsheet,
+  FileArchive,
+  FileAudio,
+  FileVideo,
+  FileCode,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -119,8 +131,13 @@ export default function TemplateForm({ initialData }: TemplateFormProps) {
     const initialVars = initialData?.variables;
     const initialFallbacks: Record<string, string> = {};
     if (Array.isArray(initialVars)) {
-      initialVars.forEach(v => {
-        if (typeof v === 'object' && v !== null && 'name' in v && 'fallback' in v) {
+      initialVars.forEach((v) => {
+        if (
+          typeof v === "object" &&
+          v !== null &&
+          "name" in v &&
+          "fallback" in v
+        ) {
           const varObj = v as { name: string; fallback: string };
           initialFallbacks[varObj.name] = varObj.fallback;
         }
@@ -167,7 +184,16 @@ export default function TemplateForm({ initialData }: TemplateFormProps) {
   const attachments = watch("attachments") || [];
 
   const MAX_FILE_SIZE = 2 * 1024 * 1024; // 2 MB
-  const ALLOWED_TYPES = [".pdf", ".doc", ".docx", ".png", ".jpg", ".jpeg", ".csv", ".txt"];
+  const ALLOWED_TYPES = [
+    ".pdf",
+    ".doc",
+    ".docx",
+    ".png",
+    ".jpg",
+    ".jpeg",
+    ".csv",
+    ".txt",
+  ];
 
   const formatBytes = (bytes: number) => {
     if (bytes < 1024) return `${bytes} B`;
@@ -181,16 +207,20 @@ export default function TemplateForm({ initialData }: TemplateFormProps) {
     e.target.value = "";
 
     const invalidType = fileArray.filter(
-      (f) => !ALLOWED_TYPES.some((ext) => f.name.toLowerCase().endsWith(ext))
+      (f) => !ALLOWED_TYPES.some((ext) => f.name.toLowerCase().endsWith(ext)),
     );
     if (invalidType.length > 0) {
-      toast.error(`${invalidType.map((f) => f.name).join(", ")} ha${invalidType.length === 1 ? "s" : "ve"} an unsupported file type`);
+      toast.error(
+        `${invalidType.map((f) => f.name).join(", ")} ha${invalidType.length === 1 ? "s" : "ve"} an unsupported file type`,
+      );
       return;
     }
 
     const oversized = fileArray.filter((f) => f.size > MAX_FILE_SIZE);
     if (oversized.length > 0) {
-      toast.error(`${oversized.map((f) => f.name).join(", ")} exceed${oversized.length === 1 ? "s" : ""} the 2 MB limit`);
+      toast.error(
+        `${oversized.map((f) => f.name).join(", ")} exceed${oversized.length === 1 ? "s" : ""} the 2 MB limit`,
+      );
       return;
     }
 
@@ -210,7 +240,9 @@ export default function TemplateForm({ initialData }: TemplateFormProps) {
 
         processedCount++;
         if (processedCount === fileArray.length) {
-          setValue("attachments", newAttachments as TemplateAttachment[], { shouldDirty: true });
+          setValue("attachments", newAttachments as TemplateAttachment[], {
+            shouldDirty: true,
+          });
           toast.success(`Added ${fileArray.length} attachment(s)`);
         }
       };
@@ -250,7 +282,10 @@ export default function TemplateForm({ initialData }: TemplateFormProps) {
       // We also need to extract variables to send to the backend
       const payload = {
         ...data,
-        variables: variables.map(v => ({ name: v, fallback: fallbacks[v] || "" })),
+        variables: variables.map((v) => ({
+          name: v,
+          fallback: fallbacks[v] || "",
+        })),
       };
 
       const res = await fetch(url, {
@@ -484,7 +519,11 @@ export default function TemplateForm({ initialData }: TemplateFormProps) {
                 <>
                   <AttachmentGroup className="w-full pb-2 border-b border-border-subtle mb-2">
                     {attachments.map((att, idx) => {
-                      const a = att as { filename: string; content: string; size?: number };
+                      const a = att as {
+                        filename: string;
+                        content: string;
+                        size?: number;
+                      };
                       return (
                         <Attachment key={idx} size="sm">
                           <AttachmentMedia variant="icon">
@@ -499,7 +538,9 @@ export default function TemplateForm({ initialData }: TemplateFormProps) {
                             )}
                           </AttachmentContent>
                           <AttachmentActions>
-                            <AttachmentAction onClick={() => removeAttachment(idx)}>
+                            <AttachmentAction
+                              onClick={() => removeAttachment(idx)}
+                            >
                               <Trash2 />
                             </AttachmentAction>
                           </AttachmentActions>
@@ -508,10 +549,14 @@ export default function TemplateForm({ initialData }: TemplateFormProps) {
                     })}
                   </AttachmentGroup>
                   {(() => {
-                    const totalBytes = attachments.reduce((sum, a) => sum + ((a as { size?: number }).size || 0), 0);
+                    const totalBytes = attachments.reduce(
+                      (sum, a) => sum + ((a as { size?: number }).size || 0),
+                      0,
+                    );
                     return totalBytes > 8 * 1024 * 1024 ? (
                       <p className="text-[11px] text-warning-text font-medium pt-1">
-                        Total size {formatBytes(totalBytes)} — some email providers may reject emails larger than 10 MB.
+                        Total size {formatBytes(totalBytes)} — some email
+                        providers may reject emails larger than 10 MB.
                       </p>
                     ) : null;
                   })()}
@@ -520,7 +565,9 @@ export default function TemplateForm({ initialData }: TemplateFormProps) {
 
               <label className="skeu-btn-ghost text-xs py-2 text-center cursor-pointer border border-dashed border-border-subtle hover:border-text-muted rounded-md flex items-center justify-center gap-1.5 font-medium">
                 Add File Attachment
-                <span className="text-text-muted font-normal">· max 2 MB each</span>
+                <span className="text-text-muted font-normal">
+                  · max 2 MB each
+                </span>
                 <input
                   type="file"
                   multiple
@@ -563,7 +610,12 @@ export default function TemplateForm({ initialData }: TemplateFormProps) {
                     <Input
                       placeholder="Default value (optional)"
                       value={fallbacks[v] || ""}
-                      onChange={(e) => setFallbacks(prev => ({ ...prev, [v]: e.target.value }))}
+                      onChange={(e) =>
+                        setFallbacks((prev) => ({
+                          ...prev,
+                          [v]: e.target.value,
+                        }))
+                      }
                       className="skeu-input text-sm h-8"
                     />
                   </div>

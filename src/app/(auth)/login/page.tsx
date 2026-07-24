@@ -15,7 +15,7 @@ export default async function LoginPage() {
     redirect("/dashboard");
   }
 
-  // Pass GOOGLE_CLIENT_ID from server so we don't need NEXT_PUBLIC prefix.
+
   const clientId = process.env.GOOGLE_CLIENT_ID || "";
 
   return (

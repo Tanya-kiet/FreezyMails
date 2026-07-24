@@ -40,17 +40,23 @@ export default function CampaignWizard({
 
   const [isSaving, setIsSaving] = useState(false);
 
-  const { data: templates = [], isLoading: templatesLoading } = useQuery<CampaignWizardTemplate[]>({
+  const { data: templates = [], isLoading: templatesLoading } = useQuery<
+    CampaignWizardTemplate[]
+  >({
     queryKey: ["templates"],
     queryFn: () => fetch("/api/templates").then((r) => r.json()),
   });
 
-  const { data: accounts = [], isLoading: accountsLoading } = useQuery<EmailAccount[]>({
+  const { data: accounts = [], isLoading: accountsLoading } = useQuery<
+    EmailAccount[]
+  >({
     queryKey: ["accounts"],
     queryFn: () => fetch("/api/accounts").then((r) => r.json()),
   });
 
-  const { data: audienceLists = [], isLoading: listsLoading } = useQuery<{ id: string; name: string }[]>({
+  const { data: audienceLists = [], isLoading: listsLoading } = useQuery<
+    { id: string; name: string }[]
+  >({
     queryKey: ["lists"],
     queryFn: () => fetch("/api/lists").then((r) => r.json()),
   });
@@ -141,10 +147,7 @@ export default function CampaignWizard({
   if (loading) return <PageSkeleton />;
 
   const isReadOnly =
-    campaignId &&
-    status &&
-    status !== "DRAFT" &&
-    status !== "DONE";
+    campaignId && status && status !== "DRAFT" && status !== "DONE";
 
   return (
     <div className="w-full max-w-5xl mx-auto py-6 px-4">
@@ -155,8 +158,8 @@ export default function CampaignWizard({
         {isReadOnly && (
           <div className="mt-4 p-4 border border-warning-bg bg-warning-bg/10 rounded-xl text-warning-text flex items-center gap-2">
             <p className="text-sm font-semibold">
-              This campaign is currently active. Only DRAFT or DONE campaigns can
-              be fully edited.
+              This campaign is currently active. Only DRAFT or DONE campaigns
+              can be fully edited.
             </p>
           </div>
         )}
@@ -176,7 +179,10 @@ export default function CampaignWizard({
                 setStep(tab.num);
                 return;
               }
-              if (tab.num > 1 && (!name || !templateId || !accountIds || accountIds.length === 0)) {
+              if (
+                tab.num > 1 &&
+                (!name || !templateId || !accountIds || accountIds.length === 0)
+              ) {
                 toast.error("Please complete the Details step first.");
                 return;
               }

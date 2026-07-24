@@ -181,7 +181,12 @@ export default function AudienceDetailPage() {
       // Append one empty row at the end for easy insertion
       setContacts([
         ...data.contacts,
-        { id: `new-placeholder-${Date.now()}`, email: "", customFields: {}, isNew: true },
+        {
+          id: `new-placeholder-${Date.now()}`,
+          email: "",
+          customFields: {},
+          isNew: true,
+        },
       ]);
     } catch {
       toast.error("Error loading list");
@@ -312,15 +317,14 @@ export default function AudienceDetailPage() {
 
   const handleConfirmDelete = async () => {
     if (!deleteConfirmTarget || deleting) return;
-    
-    // Capture the target and immediately close the modal for a snappy UI
+
     const target = deleteConfirmTarget;
     setDeleteConfirmTarget(null);
 
     try {
       if (target.type === "single") {
         const contact = target.contact;
-        
+
         // Optimistic UI update (soft delete)
         setContacts((prev) => prev.filter((c) => c.id !== contact.id));
         setSelectedIds((prev) => prev.filter((id) => id !== contact.id));
@@ -331,7 +335,8 @@ export default function AudienceDetailPage() {
             const res = await fetch(`/api/lists/${id}/contacts/${contact.id}`, {
               method: "DELETE",
             });
-            if (!res.ok && res.status !== 404) throw new Error("Failed to delete contact");
+            if (!res.ok && res.status !== 404)
+              throw new Error("Failed to delete contact");
           } catch (e) {
             console.warn("API delete failed but continuing locally", e);
           }
@@ -352,7 +357,8 @@ export default function AudienceDetailPage() {
               headers: { "Content-Type": "application/json" },
               body: JSON.stringify({ ids: dbIds }),
             });
-            if (!res.ok && res.status !== 404) throw new Error("Failed to delete selected contacts");
+            if (!res.ok && res.status !== 404)
+              throw new Error("Failed to delete selected contacts");
           } catch (e) {
             console.warn("API batch delete failed but continuing locally", e);
           }

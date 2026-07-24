@@ -29,17 +29,17 @@ export default function NewAudiencePage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ name: name.trim() }),
       });
-      
+
       const data = await res.json();
-      
+
       if (!res.ok) throw new Error(data.error || "Failed to create list");
-      
+
       toast.success("List created!");
       router.push(`/audience/${data.id || ""}`); // Assuming the API returns the created list's ID
       // If it doesn't return ID, we can push to /audience
       if (!data.id) router.push("/audience");
-      
-    } catch (_err: unknown) { const err = _err as Error;
+    } catch (_err: unknown) {
+      const err = _err as Error;
       toast.error(err.message || "Error creating list");
     } finally {
       setLoading(false);
@@ -50,10 +50,15 @@ export default function NewAudiencePage() {
     <div className="skeu-page h-[100dvh] overflow-y-auto w-full">
       <div className="max-w-3xl mx-auto px-4 py-6 sm:py-8 space-y-4 sm:space-y-6">
         <div className="flex items-center gap-3 sm:gap-4 mb-2">
-          <Link href="/audience" className="text-text-muted hover:text-text-primary transition-colors">
+          <Link
+            href="/audience"
+            className="text-text-muted hover:text-text-primary transition-colors"
+          >
             <ArrowLeft className="w-5 h-5 sm:w-6 sm:h-6" />
           </Link>
-          <h1 className="text-xl sm:text-2xl font-semibold text-text-primary">New Mailing List</h1>
+          <h1 className="text-xl sm:text-2xl font-semibold text-text-primary">
+            New Mailing List
+          </h1>
         </div>
 
         <Card className="skeu-card p-4 sm:p-6">
@@ -68,15 +73,25 @@ export default function NewAudiencePage() {
                 autoFocus
               />
               <p className="text-xs sm:text-sm text-text-muted">
-                Give your mailing list a descriptive name to help you identify it later.
+                Give your mailing list a descriptive name to help you identify
+                it later.
               </p>
             </div>
 
             <div className="flex flex-col-reverse sm:flex-row sm:justify-end gap-2 sm:gap-3">
-              <Button type="button" variant="outline" className="w-full sm:w-auto" onClick={() => router.push("/audience")}>
+              <Button
+                type="button"
+                variant="outline"
+                className="w-full sm:w-auto"
+                onClick={() => router.push("/audience")}
+              >
                 Cancel
               </Button>
-              <Button type="submit" className="skeu-btn-primary w-full sm:w-auto" disabled={loading}>
+              <Button
+                type="submit"
+                className="skeu-btn-primary w-full sm:w-auto"
+                disabled={loading}
+              >
                 {loading ? "Creating..." : "Create List"}
               </Button>
             </div>
