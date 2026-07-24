@@ -12,4 +12,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Ping Worker URL
-        run: curl -s -L -m 30 https://freezymails.onrender.com/ || echo "Ping failed, but workflow will continue"
+        run: |
+          for i in {1..3}; do
+            curl -s -L -m 30 https://freezymails.onrender.com/ || echo "Ping failed, but workflow will continue"
+            sleep 5
+          done
