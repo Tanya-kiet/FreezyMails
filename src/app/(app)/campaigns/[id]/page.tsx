@@ -47,6 +47,7 @@ interface Recipient {
   status: string;
   sentAt?: string | null;
   failReason?: string | null;
+  dynamicData?: Record<string, unknown> | null;
 }
 
 interface CampaignData {
@@ -597,6 +598,9 @@ export default function CampaignPage() {
                               Email
                             </th>
                             <th className="px-4 py-3 text-[10px] font-bold text-text-muted uppercase tracking-wider border-b border-border-subtle">
+                              Variables
+                            </th>
+                            <th className="px-4 py-3 text-[10px] font-bold text-text-muted uppercase tracking-wider border-b border-border-subtle">
                               Status
                             </th>
                             <th className="px-4 py-3 text-[10px] font-bold text-text-muted uppercase tracking-wider border-b border-border-subtle">
@@ -612,6 +616,19 @@ export default function CampaignPage() {
                             >
                               <td className="px-4 py-3 text-sm font-medium text-text-primary border-b border-border-subtle">
                                 {recipient.email}
+                              </td>
+                              <td className="px-4 py-3 text-xs text-text-muted border-b border-border-subtle max-w-[200px] truncate">
+                                {recipient.dynamicData && Object.keys(recipient.dynamicData).length > 0 ? (
+                                  <div className="flex flex-wrap gap-1">
+                                    {Object.entries(recipient.dynamicData).map(([k, v]) => (
+                                      <span key={k} className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-bg-subtle text-text-muted border border-border-subtle truncate max-w-[120px]" title={`${k}: ${String(v)}`}>
+                                        {k}: {String(v)}
+                                      </span>
+                                    ))}
+                                  </div>
+                                ) : (
+                                  <span className="text-text-muted italic opacity-50">-</span>
+                                )}
                               </td>
                               <td className="px-4 py-3 text-sm border-b border-border-subtle">
                                 <span
