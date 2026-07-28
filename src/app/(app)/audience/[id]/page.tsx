@@ -17,6 +17,9 @@ import {
   Globe,
   Check,
   Loader2,
+  MoreVertical,
+  Settings,
+  Mail,
 } from "lucide-react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
@@ -67,6 +70,7 @@ import {
 } from "@/components/ui/tooltip";
 import { Skeleton } from "@/components/ui/skeleton";
 import ConfirmPopup from "@/components/ui/ConfirmPopup";
+import ImportToCampaignModal from "./_components/ImportToCampaignModal";
 
 type Contact = {
   id: string;
@@ -157,6 +161,8 @@ export default function AudienceDetailPage() {
     }[]
   >([]);
   const [loadingHistory, setLoadingHistory] = useState(false);
+
+  const [isImportModalOpen, setIsImportModalOpen] = useState(false);
 
   const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
@@ -711,6 +717,15 @@ export default function AudienceDetailPage() {
               </div>
             </div>
             <div className="flex items-center gap-2.5">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setIsImportModalOpen(true)}
+                className="flex items-center gap-2 h-9 px-4 text-xs font-medium"
+              >
+                <Mail size={14} />
+                Import to Campaign
+              </Button>
               <Button
                 onClick={() => batchSave(contacts)}
                 disabled={!isDirty || saving}
@@ -1683,6 +1698,12 @@ export default function AudienceDetailPage() {
             </DrawerFooter>
           </DrawerContent>
         </Drawer>
+        
+        <ImportToCampaignModal 
+          isOpen={isImportModalOpen}
+          onClose={() => setIsImportModalOpen(false)}
+          listId={id}
+        />
       </div>
     </TooltipProvider>
   );

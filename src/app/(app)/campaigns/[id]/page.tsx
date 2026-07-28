@@ -18,12 +18,14 @@ import {
   AlertCircle,
   Inbox,
   Edit,
+  Plus,
 } from "lucide-react";
 import { toast } from "sonner";
 import PageSkeleton from "../../_components/PageSkeleton";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   Attachment,
@@ -33,6 +35,7 @@ import {
   AttachmentTitle,
   getFileIcon,
 } from "@/components/ui/attachment";
+import AddRecipientsModal from "./_components/AddRecipientsModal";
 
 interface CampaignAttachment {
   filename: string;
@@ -92,9 +95,13 @@ interface CampaignProgress {
 
 export default function CampaignPage() {
   const params = useParams();
+  const searchParams = useSearchParams();
   const router = useRouter();
   const id = params.id as string;
   const queryClient = useQueryClient();
+
+  const importListId = searchParams.get("importList");
+  const [isAddRecipientsOpen, setIsAddRecipientsOpen] = useState(!!importListId);
 
 
   const { data, isLoading: loading } = useQuery<CampaignData>({
@@ -501,25 +508,38 @@ export default function CampaignPage() {
 
             {/* RECIPIENTS SECTION */}
             <div className="skeu-card p-0 overflow-hidden">
-              <button
-                onClick={handleToggleRecipients}
-                className="w-full flex justify-between items-center px-5 py-4 font-semibold text-sm text-text-primary hover:bg-bg-subtle/50 transition-colors cursor-pointer"
-              >
-                <span className="flex items-center gap-2">
-                  <Inbox size={16} className="text-text-muted" />
-                  Recipients & Sending List
-                </span>
-                <div className="flex items-center gap-2">
-                  <span className="text-xs font-normal text-text-muted bg-bg-subtle border border-border-subtle px-2 py-0.5 rounded-full">
-                    {progress?.total ?? 0}
+              <div className="flex justify-between items-center pr-4">
+                <button
+                  onClick={handleToggleRecipients}
+                  className="flex-1 flex items-center px-5 py-4 font-semibold text-sm text-text-primary hover:bg-bg-subtle/50 transition-colors cursor-pointer"
+                >
+                  <span className="flex items-center gap-2">
+                    <Inbox size={16} className="text-text-muted" />
+                    Recipients & Sending List
                   </span>
-                  {showRecipients ? (
-                    <ChevronUp size={16} />
-                  ) : (
-                    <ChevronDown size={16} />
-                  )}
-                </div>
-              </button>
+                  <div className="flex items-center gap-2 ml-4">
+                    <span className="text-xs font-normal text-text-muted bg-bg-subtle border border-border-subtle px-2 py-0.5 rounded-full">
+                      {progress?.total ?? 0}
+                    </span>
+                    {showRecipients ? (
+                      <ChevronUp size={16} />
+                    ) : (
+                      <ChevronDown size={16} />
+                    )}
+                  </div>
+                </button>
+                <Button
+                  variant="primary"
+                  size="sm"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setIsAddRecipientsOpen(true);
+                  }}
+                  className="shrink-0 h-8 gap-1"
+                >
+                  <Plus size={14} /> Add Recipients
+                </Button>
+              </div>
 
               {showRecipients && (
                 <div className="p-5 border-t border-border-subtle bg-bg-base space-y-4">
@@ -771,6 +791,27 @@ export default function CampaignPage() {
           </div>
         </div>
       </div>
+      
+      {data && (
+        <AddRecipientsModal
+          isOpen={isAddRecipientsOpen}
+          onClose={() => {
+            setIsAddRecipientsOpen(false);
+            if (importListId) {
+              const url = new URL(window.location.href);
+              url.searchParams.delete("importList");
+              router.replace(url.toString(), { scroll: false });
+            }
+          }}
+          campaignId={id}
+          templateVariables={Array.from(new Set([...(data.template?.body.matchAll(/\{\{([^}]+)\}\}/g) || [])].map(m => m[1])))}
+          onSuccess={() => {
+            invalidateCampaign();
+            fetchRecipients();
+          }}
+          importListId={importListId}
+        />
+      )}
     </div>
   );
 }
