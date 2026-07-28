@@ -9,6 +9,8 @@ import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { CommandMenu } from "./CommandMenu";
 
+import { useQuery } from "@tanstack/react-query";
+
 function BreadcrumbItem({
   segment,
   previousSegment,
@@ -20,34 +22,49 @@ function BreadcrumbItem({
   href: string;
   isLast: boolean;
 }) {
-  const [name, setName] = useState<string | null>(null);
+  const isUUID =
+    /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
+      segment,
+    );
 
-  useEffect(() => {
-    const isUUID =
-      /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
-        segment,
-      );
-    if (!isUUID || !previousSegment) return;
+  let endpoint = "";
+  let queryKey: string[] = [];
 
-    let endpoint = "";
+  if (isUUID && previousSegment) {
     if (previousSegment === "campaigns") {
       endpoint = `/api/campaigns/${segment}`;
+      queryKey = ["campaign", segment];
     } else if (previousSegment === "templates") {
       endpoint = `/api/templates/${segment}`;
+      queryKey = ["template", segment];
+    } else if (previousSegment === "audience") {
+      endpoint = `/api/lists/${segment}`;
+      queryKey = ["audience-list", segment];
     }
+  }
 
-    if (endpoint) {
-      fetch(endpoint)
-        .then((res) => (res.ok ? res.json() : null))
-        .then((data) => {
-          if (data && data.name) setName(data.name);
-        })
-        .catch(() => {});
+  const { data: itemData, isLoading } = useQuery<{ name?: string }>({
+    queryKey: queryKey.length > 0 ? queryKey : ["breadcrumb", segment],
+    queryFn: async () => {
+      if (!endpoint) return null;
+      const res = await fetch(endpoint);
+      if (!res.ok) return null;
+      return res.json();
+    },
+    enabled: isUUID && !!endpoint,
+    staleTime: 5 * 60 * 1000,
+  });
+
+  let displayTitle = segment.charAt(0).toUpperCase() + segment.slice(1);
+  if (isUUID) {
+    if (itemData?.name) {
+      displayTitle = itemData.name;
+    } else if (isLoading) {
+      displayTitle = "Loading...";
+    } else {
+      displayTitle = "Details";
     }
-  }, [segment, previousSegment]);
-
-  const displayTitle =
-    name || segment.charAt(0).toUpperCase() + segment.slice(1);
+  }
 
   return (
     <div className="flex items-center shrink-0">
