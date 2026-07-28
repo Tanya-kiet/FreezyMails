@@ -259,7 +259,7 @@ export async function PUT(request: Request, props: { params: Promise<{ id: strin
       return campaign
     }, {
       maxWait: 10000,
-      timeout: 30000,
+      timeout: 60000,
     })
 
     return NextResponse.json({ id: updatedCampaign.id })

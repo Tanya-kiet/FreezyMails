@@ -162,7 +162,7 @@ export async function POST(request: Request) {
       })
 
       return newCampaign
-    })
+    }, { timeout: 60000, maxWait: 10000 })
 
     return NextResponse.json({ id: campaign.id })
   } catch (_err: unknown) { const err = _err as Error;

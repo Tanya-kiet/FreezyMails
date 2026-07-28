@@ -69,20 +69,23 @@ export async function POST(
       };
     });
 
-    await prisma.$transaction(async (tx) => {
-      await tx.recipient.createMany({
-        data: recipientData,
-        skipDuplicates: true,
-      });
-
-      // If campaign is DONE and we're adding new recipients, move it to PAUSED
-      if (campaign.status === "DONE") {
-        await tx.campaign.update({
-          where: { id: campaign.id },
-          data: { status: "PAUSED" },
+    await prisma.$transaction(
+      async (tx) => {
+        await tx.recipient.createMany({
+          data: recipientData,
+          skipDuplicates: true,
         });
-      }
-    });
+
+        // If campaign is DONE and we're adding new recipients, move it to PAUSED
+        if (campaign.status === "DONE") {
+          await tx.campaign.update({
+            where: { id: campaign.id },
+            data: { status: "PAUSED" },
+          });
+        }
+      },
+      { timeout: 60000, maxWait: 10000 },
+    );
 
     return NextResponse.json({ success: true, count: recipientData.length });
   } catch (_error: unknown) {

@@ -27,32 +27,35 @@ export async function PUT(
       return NextResponse.json({ error: "Invalid data format" }, { status: 400 });
     }
 
-    // We can do this in a transaction
-    const results = await prisma.$transaction(async (tx) => {
-      const processed = [];
-      for (const contact of contacts) {
-        if (!contact.email) continue;
-        
-        const upserted = await tx.contact.upsert({
-          where: {
-            mailingListId_email: {
+    // We can do this in a transaction with an extended timeout
+    const results = await prisma.$transaction(
+      async (tx) => {
+        const processed = [];
+        for (const contact of contacts) {
+          if (!contact.email) continue;
+
+          const upserted = await tx.contact.upsert({
+            where: {
+              mailingListId_email: {
+                mailingListId: id,
+                email: contact.email,
+              },
+            },
+            update: {
+              customFields: contact.customFields || {},
+            },
+            create: {
               mailingListId: id,
               email: contact.email,
-            }
-          },
-          update: {
-            customFields: contact.customFields || {},
-          },
-          create: {
-            mailingListId: id,
-            email: contact.email,
-            customFields: contact.customFields || {},
-          }
-        });
-        processed.push(upserted);
-      }
-      return processed;
-    });
+              customFields: contact.customFields || {},
+            },
+          });
+          processed.push(upserted);
+        }
+        return processed;
+      },
+      { timeout: 60000, maxWait: 10000 },
+    );
 
     return NextResponse.json({ success: true, contacts: results });
   } catch (_error: unknown) { const error = _error as Error;
