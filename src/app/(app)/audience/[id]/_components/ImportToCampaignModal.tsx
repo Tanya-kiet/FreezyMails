@@ -42,22 +42,38 @@ export default function ImportToCampaignModal({
   const [loading, setLoading] = useState(true);
   const [selectedCampaignId, setSelectedCampaignId] = useState<string>("new");
 
-  useEffect(() => {
+  // Track previous isOpen to safely reset loading state during render
+  const [prevIsOpen, setPrevIsOpen] = useState(isOpen);
+  if (isOpen !== prevIsOpen) {
+    setPrevIsOpen(isOpen);
     if (isOpen) {
       setLoading(true);
+    }
+  }
+
+  useEffect(() => {
+    let isMounted = true;
+
+    if (isOpen) {
       fetch("/api/campaigns")
         .then((res) => res.json())
         .then((data) => {
-          if (Array.isArray(data)) {
-            // Only show campaigns that are DRAFT, PAUSED, SCHEDULED, or DONE
-            // (Exclude SENDING to prevent concurrent editing issues, or include it if desired, but safest is to allow PAUSED/DONE)
-            const available = data.filter(c => c.status !== "SENDING");
+          if (isMounted && Array.isArray(data)) {
+            const available = data.filter((c: Campaign) => c.status !== "SENDING");
             setCampaigns(available);
           }
         })
-        .catch((err) => console.error("Failed to load campaigns", err))
-        .finally(() => setLoading(false));
+        .catch((err) => {
+          if (isMounted) console.error("Failed to load campaigns", err);
+        })
+        .finally(() => {
+          if (isMounted) setLoading(false);
+        });
     }
+
+    return () => {
+      isMounted = false;
+    };
   }, [isOpen]);
 
   const handleImport = () => {
@@ -71,31 +87,41 @@ export default function ImportToCampaignModal({
 
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
-      <DialogContent className="w-[95vw] sm:max-w-md p-4 sm:p-6 rounded-xl">
+      <DialogContent
+        className="w-[95vw] sm:max-w-md p-4 sm:p-6 rounded-xl"
+        onInteractOutside={(e) => e.preventDefault()}
+      >
         <DialogHeader>
           <DialogTitle>Import to Campaign</DialogTitle>
           <DialogDescription>
-            Select an existing campaign to add these contacts to, or create a new campaign.
+            Select an existing campaign to add these contacts to, or create a
+            new campaign.
           </DialogDescription>
         </DialogHeader>
 
-        <div className="py-4 space-y-4">
-          <label className="text-sm font-medium text-text-primary">
+        <div className="py-3 space-y-4">
+          <label className="text-sm font-medium text-text-primary mb-2">
             Select Campaign
           </label>
-          
+
           {loading ? (
             <div className="flex items-center gap-2 text-text-muted text-sm">
               <Loader2 className="w-4 h-4 animate-spin" />
               Loading campaigns...
             </div>
           ) : (
-            <Select value={selectedCampaignId} onValueChange={setSelectedCampaignId}>
+            <Select
+              value={selectedCampaignId}
+              onValueChange={setSelectedCampaignId}
+            >
               <SelectTrigger className="w-full">
                 <SelectValue placeholder="Select a campaign..." />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="new" className="font-semibold text-primary-base flex items-center gap-2">
+                <SelectItem
+                  value="new"
+                  className="font-semibold text-primary-base flex items-center gap-2"
+                >
                   <span className="flex items-center gap-2">
                     <Plus size={14} /> Create New Campaign
                   </span>
@@ -109,7 +135,10 @@ export default function ImportToCampaignModal({
                   <SelectItem key={c.id} value={c.id}>
                     <span className="flex items-center gap-2">
                       <Mail size={14} className="text-text-muted" />
-                      {c.name} <span className="text-text-muted text-xs">({c.status})</span>
+                      {c.name}{" "}
+                      <span className="text-text-muted text-xs">
+                        ({c.status})
+                      </span>
                     </span>
                   </SelectItem>
                 ))}
@@ -119,10 +148,19 @@ export default function ImportToCampaignModal({
         </div>
 
         <DialogFooter className="flex-col sm:flex-row gap-2 sm:gap-0 mt-4 sm:mt-0">
-          <Button variant="ghost" onClick={onClose} className="w-full sm:w-auto">
+          <Button
+            variant="ghost"
+            onClick={onClose}
+            className="w-full sm:w-auto"
+          >
             Cancel
           </Button>
-          <Button variant="primary" onClick={handleImport} disabled={loading || !selectedCampaignId} className="w-full sm:w-auto">
+          <Button
+            variant="primary"
+            onClick={handleImport}
+            disabled={loading || !selectedCampaignId}
+            className="w-full sm:w-auto"
+          >
             Continue
           </Button>
         </DialogFooter>

@@ -31,6 +31,29 @@ const campaignSchema = z.object({
   })).optional()
 })
 
+export async function GET(req: Request) {
+  const user = await getUser()
+  if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+
+  try {
+    const campaigns = await prisma.campaign.findMany({
+      where: { userId: user.id },
+      select: {
+        id: true,
+        name: true,
+        status: true,
+        createdAt: true,
+      },
+      orderBy: { createdAt: 'desc' }
+    })
+    return NextResponse.json(campaigns)
+  } catch (_err: unknown) {
+    const err = _err as Error
+    console.error('Error fetching campaigns:', err)
+    return NextResponse.json({ error: 'Failed to fetch campaigns' }, { status: 500 })
+  }
+}
+
 export async function POST(request: Request) {
   const user = await getUser()
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
