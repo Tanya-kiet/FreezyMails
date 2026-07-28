@@ -1,12 +1,13 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { Users, Trash2, Search, Edit2 } from "lucide-react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import { Input } from "@/components/ui/input";
 import { useRouter } from "next/navigation";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import ConfirmPopup from "@/components/ui/ConfirmPopup";
 import {
   Tooltip,
@@ -25,45 +26,39 @@ type MailingList = {
 
 export default function AudiencePage() {
   const router = useRouter();
-  const [lists, setLists] = useState<MailingList[]>([]);
-  const [loading, setLoading] = useState(true);
+  const queryClient = useQueryClient();
   const [search, setSearch] = useState("");
   const [deleteConfirmTarget, setDeleteConfirmTarget] = useState<string | null>(
     null,
   );
 
-  const fetchLists = async () => {
-    try {
+  const { data: lists = [], isLoading: loading } = useQuery<MailingList[]>({
+    queryKey: ["audience-lists"],
+    queryFn: async () => {
       const res = await fetch("/api/lists");
-      if (!res.ok) throw new Error("Failed to fetch");
-      const data = await res.json();
-      setLists(data);
-    } catch (err) {
-      toast.error("Failed to load mailing lists");
-    } finally {
-      setLoading(false);
-    }
-  };
+      if (!res.ok) throw new Error("Failed to load mailing lists");
+      return res.json();
+    },
+    staleTime: 30 * 1000,
+  });
 
-  useEffect(() => {
-    const init = async () => {
-      await fetchLists();
-    };
-    void init();
-  }, []);
-
-  const deleteList = async (id: string) => {
-    try {
+  const deleteMutation = useMutation({
+    mutationFn: async (id: string) => {
       const res = await fetch(`/api/lists/${id}`, { method: "DELETE" });
       if (!res.ok) throw new Error("Failed to delete list");
+      return res.json();
+    },
+    onSuccess: () => {
       toast.success("List deleted!");
-      fetchLists();
-    } catch (err) {
+      queryClient.invalidateQueries({ queryKey: ["audience-lists"] });
+    },
+    onError: () => {
       toast.error("Error deleting list");
-    } finally {
+    },
+    onSettled: () => {
       setDeleteConfirmTarget(null);
-    }
-  };
+    },
+  });
 
   const filteredLists = lists.filter((l) =>
     l.name.toLowerCase().includes(search.toLowerCase()),
@@ -193,7 +188,7 @@ export default function AudiencePage() {
       <ConfirmPopup
         isOpen={deleteConfirmTarget !== null}
         onClose={() => setDeleteConfirmTarget(null)}
-        onConfirm={() => deleteConfirmTarget && deleteList(deleteConfirmTarget)}
+        onConfirm={() => deleteConfirmTarget && deleteMutation.mutate(deleteConfirmTarget)}
         title="Delete this mailing list?"
         description="This will permanently remove the mailing list and all its contacts. This action cannot be undone."
         confirmText="Delete Mailing List"
@@ -201,3 +196,4 @@ export default function AudiencePage() {
     </div>
   );
 }
+

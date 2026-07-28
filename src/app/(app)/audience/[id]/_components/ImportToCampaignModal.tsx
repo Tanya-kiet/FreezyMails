@@ -1,7 +1,8 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { useQuery } from "@tanstack/react-query";
 import {
   Dialog,
   DialogContent,
@@ -38,43 +39,20 @@ export default function ImportToCampaignModal({
   listId,
 }: ImportToCampaignModalProps) {
   const router = useRouter();
-  const [campaigns, setCampaigns] = useState<Campaign[]>([]);
-  const [loading, setLoading] = useState(true);
   const [selectedCampaignId, setSelectedCampaignId] = useState<string>("new");
 
-  // Track previous isOpen to safely reset loading state during render
-  const [prevIsOpen, setPrevIsOpen] = useState(isOpen);
-  if (isOpen !== prevIsOpen) {
-    setPrevIsOpen(isOpen);
-    if (isOpen) {
-      setLoading(true);
-    }
-  }
+  const { data: rawCampaigns = [], isLoading: loading } = useQuery<Campaign[]>({
+    queryKey: ["campaigns-list"],
+    queryFn: async () => {
+      const res = await fetch("/api/campaigns");
+      if (!res.ok) throw new Error("Failed to load campaigns");
+      return res.json();
+    },
+    enabled: isOpen,
+    staleTime: 30 * 1000,
+  });
 
-  useEffect(() => {
-    let isMounted = true;
-
-    if (isOpen) {
-      fetch("/api/campaigns")
-        .then((res) => res.json())
-        .then((data) => {
-          if (isMounted && Array.isArray(data)) {
-            const available = data.filter((c: Campaign) => c.status !== "SENDING");
-            setCampaigns(available);
-          }
-        })
-        .catch((err) => {
-          if (isMounted) console.error("Failed to load campaigns", err);
-        })
-        .finally(() => {
-          if (isMounted) setLoading(false);
-        });
-    }
-
-    return () => {
-      isMounted = false;
-    };
-  }, [isOpen]);
+  const campaigns = rawCampaigns.filter((c) => c.status !== "SENDING");
 
   const handleImport = () => {
     if (selectedCampaignId === "new") {
@@ -105,8 +83,8 @@ export default function ImportToCampaignModal({
           </label>
 
           {loading ? (
-            <div className="flex items-center gap-2 text-text-muted text-sm">
-              <Loader2 className="w-4 h-4 animate-spin" />
+            <div className="flex items-center gap-2 text-text-muted text-sm py-2">
+              <Loader2 className="w-4 h-4 animate-spin text-primary-base" />
               Loading campaigns...
             </div>
           ) : (
@@ -168,3 +146,4 @@ export default function ImportToCampaignModal({
     </Dialog>
   );
 }
+

@@ -2,7 +2,6 @@ import { getUser } from "@/lib/supabase";
 import { redirect } from "next/navigation";
 import Sidebar from "./_components/Sidebar";
 import Header from "./_components/Header";
-import QueryProvider from "@/providers/QueryProvider";
 
 export default async function AppLayout({
   children,
@@ -28,12 +27,11 @@ export default async function AppLayout({
       <Sidebar user={user} />
 
       {/* Main Content */}
-      <QueryProvider>
-        <div className="flex-1 overflow-y-auto flex flex-col relative">
-          <Header />
-          <main className="flex-1 relative">{children}</main>
-        </div>
-      </QueryProvider>
+      <div className="flex-1 overflow-y-auto flex flex-col relative">
+        <Header />
+        <main className="flex-1 relative">{children}</main>
+      </div>
     </div>
   );
 }
+

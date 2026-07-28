@@ -62,6 +62,7 @@ interface CampaignData {
     name: string;
     subject: string;
     body: string;
+    variables?: Array<string | { name: string; fallback?: string }>;
     attachments?: CampaignAttachment[];
   };
   abEnabled?: boolean;
@@ -102,8 +103,8 @@ export default function CampaignPage() {
   const queryClient = useQueryClient();
 
   const importListId = searchParams.get("importList");
-  const [isAddRecipientsOpen, setIsAddRecipientsOpen] = useState(!!importListId);
-
+  const [isAddRecipientsOpen, setIsAddRecipientsOpen] =
+    useState(!!importListId);
 
   const { data, isLoading: loading } = useQuery<CampaignData>({
     queryKey: ["campaign", id],
@@ -122,7 +123,10 @@ export default function CampaignPage() {
     refetchInterval: (query) => {
       const p = query.state.data as CampaignProgress | undefined;
       if (p && p.pending === 0) return false;
-      const campaignData = queryClient.getQueryData<CampaignData>(["campaign", id]);
+      const campaignData = queryClient.getQueryData<CampaignData>([
+        "campaign",
+        id,
+      ]);
       return campaignData?.status === "SENDING" ? 3000 : false;
     },
     enabled: !!data,
@@ -134,9 +138,14 @@ export default function CampaignPage() {
   const [statusFilter, setStatusFilter] = useState("ALL");
   const [loadingAction, setLoadingAction] = useState<string | null>(null);
 
-  const { data: recipients = [], isFetching: recipientsLoading, refetch: fetchRecipients } = useQuery<Recipient[]>({
+  const {
+    data: recipients = [],
+    isFetching: recipientsLoading,
+    refetch: fetchRecipients,
+  } = useQuery<Recipient[]>({
     queryKey: ["campaign-recipients", id],
-    queryFn: () => fetch(`/api/campaigns/${id}/recipients`).then((r) => r.json()),
+    queryFn: () =>
+      fetch(`/api/campaigns/${id}/recipients`).then((r) => r.json()),
     enabled: showRecipients,
   });
 
@@ -210,6 +219,20 @@ export default function CampaignPage() {
           resume: "resumed",
           send: "started",
         };
+        const statusMap: Record<string, string> = {
+          pause: "PAUSED",
+          resume: "SENDING",
+          send: "SENDING",
+        };
+        if (statusMap[action]) {
+          const newStatus = statusMap[action];
+          queryClient.setQueryData<CampaignData>(["campaign", id], (old) =>
+            old ? { ...old, status: newStatus } : old
+          );
+          queryClient.setQueryData<CampaignProgress>(["campaign-progress", id], (old) =>
+            old ? { ...old, status: newStatus } : old
+          );
+        }
         toast.success(`Campaign ${actionMap[action]}!`);
         invalidateCampaign();
       }
@@ -297,7 +320,9 @@ export default function CampaignPage() {
                   handleAction(data.status === "PAUSED" ? "resume" : "send")
                 }
                 leftIcon={<Play size={16} />}
-                isLoading={loadingAction === "resume" || loadingAction === "send"}
+                isLoading={
+                  loadingAction === "resume" || loadingAction === "send"
+                }
               >
                 {data.status === "PAUSED"
                   ? "Resume"
@@ -618,16 +643,26 @@ export default function CampaignPage() {
                                 {recipient.email}
                               </td>
                               <td className="px-4 py-3 text-xs text-text-muted border-b border-border-subtle max-w-[200px] truncate">
-                                {recipient.dynamicData && Object.keys(recipient.dynamicData).length > 0 ? (
+                                {recipient.dynamicData &&
+                                Object.keys(recipient.dynamicData).length >
+                                  0 ? (
                                   <div className="flex flex-wrap gap-1">
-                                    {Object.entries(recipient.dynamicData).map(([k, v]) => (
-                                      <span key={k} className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-bg-subtle text-text-muted border border-border-subtle truncate max-w-[120px]" title={`${k}: ${String(v)}`}>
-                                        {k}: {String(v)}
-                                      </span>
-                                    ))}
+                                    {Object.entries(recipient.dynamicData).map(
+                                      ([k, v]) => (
+                                        <span
+                                          key={k}
+                                          className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-bg-subtle text-text-muted border border-border-subtle truncate max-w-[120px]"
+                                          title={`${k}: ${String(v)}`}
+                                        >
+                                          {k}: {String(v)}
+                                        </span>
+                                      ),
+                                    )}
                                   </div>
                                 ) : (
-                                  <span className="text-text-muted italic opacity-50">-</span>
+                                  <span className="text-text-muted italic opacity-50">
+                                    -
+                                  </span>
                                 )}
                               </td>
                               <td className="px-4 py-3 text-sm border-b border-border-subtle">
@@ -788,12 +823,18 @@ export default function CampaignPage() {
                           <AttachmentGroup className="w-full">
                             {data.template.attachments.map(
                               (att: CampaignAttachment, attIdx: number) => (
-                                <Attachment key={attIdx} size="sm" orientation="horizontal">
+                                <Attachment
+                                  key={attIdx}
+                                  size="sm"
+                                  orientation="horizontal"
+                                >
                                   <AttachmentMedia variant="icon">
                                     {getFileIcon(att.filename)}
                                   </AttachmentMedia>
                                   <AttachmentContent>
-                                    <AttachmentTitle>{att.filename}</AttachmentTitle>
+                                    <AttachmentTitle>
+                                      {att.filename}
+                                    </AttachmentTitle>
                                   </AttachmentContent>
                                 </Attachment>
                               ),
@@ -808,7 +849,7 @@ export default function CampaignPage() {
           </div>
         </div>
       </div>
-      
+
       {data && (
         <AddRecipientsModal
           isOpen={isAddRecipientsOpen}
@@ -821,7 +862,16 @@ export default function CampaignPage() {
             }
           }}
           campaignId={id}
-          templateVariables={Array.from(new Set([...(data.template?.body.matchAll(/\{\{([^}]+)\}\}/g) || [])].map(m => m[1])))}
+          templateVariables={
+            (data.template?.variables as Array<string | { name: string; fallback?: string }>) ||
+            Array.from(
+              new Set(
+                [...(data.template?.body.matchAll(/\{\{([^}]+)\}\}/g) || [])].map(
+                  (m) => m[1],
+                ),
+              ),
+            )
+          }
           onSuccess={() => {
             invalidateCampaign();
             fetchRecipients();

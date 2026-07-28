@@ -11,9 +11,11 @@ export async function POST(request: Request, props: { params: Promise<{ id: stri
 
   const campaign = await prisma.campaign.findUnique({
     where: { id: params.id, userId: user.id },
-    include: { 
-      recipients: { where: { status: 'PENDING' } },
-      emailAccounts: true
+    select: { 
+      id: true,
+      pacingType: true,
+      recipients: { where: { status: 'PENDING' }, select: { id: true, dynamicData: true } },
+      emailAccounts: { select: { id: true } }
     }
   })
   if (!campaign) return NextResponse.json({ error: 'Not found' }, { status: 404 })

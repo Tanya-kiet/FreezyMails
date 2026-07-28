@@ -58,7 +58,7 @@ interface AddRecipientsModalProps {
   isOpen: boolean;
   onClose: () => void;
   campaignId: string;
-  templateVariables: string[];
+  templateVariables?: Array<string | { name: string; fallback?: string }> | string[];
   onSuccess: () => void;
   importListId?: string | null;
 }
@@ -94,7 +94,34 @@ export default function AddRecipientsModal({
   const [lastEdited, setLastEdited] = useState<{row: number, col: string} | null>(null);
   const [isDragging, setIsDragging] = useState(false);
 
-  const requiredHeaders = ["email", ...templateVariables.filter(v => v !== "email")];
+  const requiredHeaders: string[] = ["email"];
+  const headerFallbacks: Record<string, string> = {};
+
+  if (Array.isArray(templateVariables)) {
+    templateVariables.forEach((v) => {
+      if (typeof v === "string") {
+        if (v !== "email" && !requiredHeaders.includes(v)) {
+          requiredHeaders.push(v);
+        }
+      } else if (typeof v === "object" && v !== null && "name" in v) {
+        const varObj = v as { name: string; fallback?: string };
+        if (varObj.name !== "email" && !requiredHeaders.includes(varObj.name)) {
+          requiredHeaders.push(varObj.name);
+        }
+        if (varObj.fallback) {
+          headerFallbacks[varObj.name] = varObj.fallback;
+        }
+      }
+    });
+  }
+
+  const [selectedAudienceListId, setSelectedAudienceListId] = useState<string>(importListId || "none");
+
+  useEffect(() => {
+    if (importListId) {
+      setSelectedAudienceListId(importListId);
+    }
+  }, [importListId]);
 
   useEffect(() => {
     if (isOpen) {
@@ -131,45 +158,38 @@ export default function AddRecipientsModal({
       return;
     }
 
-    const lines = recipientsText.split("\n").filter((l) => l.trim() !== "");
-    const delimiter = lines.length > 0 && lines[0].includes("\t") ? "\t" : ",";
-    
-    Papa.parse(recipientsText, {
-      delimiter,
-      header: true,
-      skipEmptyLines: true,
-      complete: (results) => {
-        let data = results.data as Record<string, string>[];
-        if (data.length > 0) {
-          const firstRowKeys = Object.keys(data[0]).map(k => k.toLowerCase());
-          if (!firstRowKeys.includes("email")) {
-             // Try to re-parse without header if 'email' is not found in the first row
-             Papa.parse(recipientsText, {
-               delimiter,
-               header: false,
-               skipEmptyLines: true,
-               complete: (resNoHeader) => {
-                  const raw = resNoHeader.data as string[][];
-                  data = raw.map(row => {
-                     const obj: Record<string, string> = {};
-                     requiredHeaders.forEach((h, i) => {
-                        obj[h] = row[i] || "";
-                     });
-                     return obj;
-                  });
-                  validateData(data);
-               }
-             });
-             return;
-          }
-        }
-        validateData(data);
-      },
-      error: (error: Error) => {
-        setIsValid(false);
-        setGlobalError("Failed to parse data: " + error.message);
-      }
+    let lines = recipientsText.split("\n").filter((l) => l.trim() !== "");
+    if (lines.length === 0) {
+      setParsedRecipients([]);
+      setValidationErrors({});
+      setIsValid(false);
+      setGlobalError(null);
+      return;
+    }
+
+    if (lines[0].toLowerCase().startsWith("email")) {
+      lines = lines.slice(1);
+    }
+
+    if (lines.length === 0) {
+      setParsedRecipients([]);
+      setValidationErrors({});
+      setIsValid(false);
+      setGlobalError("Please enter at least one recipient.");
+      return;
+    }
+
+    const delimiter = lines[0].includes("\t") ? "\t" : ",";
+    const data = lines.map((line) => {
+      const vals = line.split(delimiter).map((v) => v.trim());
+      const obj: Record<string, string> = {};
+      requiredHeaders.forEach((h, i) => {
+        obj[h] = vals[i] || "";
+      });
+      return obj;
     });
+
+    validateData(data);
   }, [recipientsText, templateVariables]);
 
   const validateData = (data: Record<string, string>[]) => {
@@ -177,7 +197,7 @@ export default function AddRecipientsModal({
     const errors: Record<number, string[]> = {};
     const seenEmails = new Set<string>();
     let hasError = false;
-    let globalErr = null;
+    let globalErr: string | null = null;
 
     if (data.length === 0) {
       globalErr = "No recipients found.";
@@ -189,10 +209,9 @@ export default function AddRecipientsModal({
 
     data.forEach((row, i) => {
       const rowErrors: string[] = [];
-      const emailKey = Object.keys(row).find(k => k.toLowerCase() === 'email');
-      const email = emailKey ? row[emailKey] : undefined;
+      const email = row.email?.trim();
 
-      if (!email || !email.trim()) {
+      if (!email) {
         rowErrors.push("Email is required");
       } else {
         const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -205,10 +224,11 @@ export default function AddRecipientsModal({
         }
       }
 
-      requiredHeaders.forEach(header => {
-        if (header.toLowerCase() !== 'email') {
-          const matchedKey = Object.keys(row).find(k => k.toLowerCase() === header.toLowerCase());
-          if (!matchedKey || !row[matchedKey] || !row[matchedKey].trim()) {
+      requiredHeaders.forEach((header) => {
+        if (header.toLowerCase() !== "email") {
+          const val = row[header];
+          const hasFallback = !!headerFallbacks[header];
+          if ((!val || !val.trim()) && !hasFallback) {
             rowErrors.push(`Missing required variable: ${header}`);
           }
         }
@@ -224,6 +244,7 @@ export default function AddRecipientsModal({
     setIsValid(!hasError);
     setGlobalError(globalErr);
   };
+
 
   const getTableRows = () => {
     let lines = recipientsText.split("\n").filter((l) => l !== "");
@@ -260,7 +281,7 @@ export default function AddRecipientsModal({
     const rows = getTableRows();
     const newRow: Record<string, string> = {};
     requiredHeaders.forEach((h) => {
-      newRow[h] = "";
+      newRow[h] = headerFallbacks[h] || "";
     });
     rows.push(newRow);
     const newText = rows
@@ -423,13 +444,13 @@ export default function AddRecipientsModal({
       (contact: { email?: string; customFields?: Record<string, string>; sentStatus?: string }) => {
         const values = requiredHeaders.map((h) => {
           const mappedListField = fieldMapping[h];
-          if (!mappedListField) return "";
+          if (!mappedListField) return headerFallbacks[h] || "";
 
           if (mappedListField.toLowerCase() === "email") {
-            return contact.email || "";
+            return contact.email || headerFallbacks[h] || "";
           }
 
-          return contact.customFields?.[mappedListField] || "";
+          return contact.customFields?.[mappedListField] || headerFallbacks[h] || "";
         });
         rows.push(values.join(delimiter));
       },
@@ -481,7 +502,11 @@ export default function AddRecipientsModal({
   return (
     <>
       <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
-        <DialogContent className="w-[95vw] sm:max-w-4xl max-h-[95vh] sm:max-h-[90vh] flex flex-col p-4 sm:p-6 overflow-hidden rounded-xl">
+        <DialogContent 
+          className="w-[95vw] sm:max-w-4xl max-h-[95vh] sm:max-h-[90vh] flex flex-col p-4 sm:p-6 overflow-hidden rounded-xl"
+          onInteractOutside={(e) => e.preventDefault()}
+          onPointerDownOutside={(e) => e.preventDefault()}
+        >
           <DialogHeader className="shrink-0">
             <DialogTitle>Add Recipients</DialogTitle>
             <DialogDescription>
@@ -542,7 +567,13 @@ export default function AddRecipientsModal({
                     />
                   </label>
                   <div className="hidden sm:block w-px h-6 bg-border-subtle mx-1"></div>
-                  <Select onValueChange={handleImportFromAudience} value={importListId || "none"}>
+                  <Select
+                    onValueChange={(val) => {
+                      setSelectedAudienceListId(val);
+                      handleImportFromAudience(val);
+                    }}
+                    value={selectedAudienceListId}
+                  >
                     <SelectTrigger className="w-full sm:w-[180px] bg-bg-base border border-border-subtle rounded-md h-9 text-sm">
                       <SelectValue placeholder="Import from Audience" />
                     </SelectTrigger>
@@ -615,7 +646,11 @@ export default function AddRecipientsModal({
                             <input
                               type="text"
                               className={`w-full p-2 border border-transparent hover:border-border-subtle focus:border-primary-base rounded transition-colors text-sm placeholder:text-text-muted/60 ${isRecentlyEdited ? 'bg-green-500/20 text-green-700 dark:text-green-400' : 'bg-transparent focus:bg-bg-base'}`}
-                              placeholder={`Enter ${h}`}
+                              placeholder={
+                                headerFallbacks[h]
+                                  ? `Default: ${headerFallbacks[h]}`
+                                  : `Enter ${h}`
+                              }
                               value={row[h] || ""}
                               onChange={(e) =>
                                 handleTableChange(i, h, e.target.value)
@@ -692,14 +727,26 @@ export default function AddRecipientsModal({
                             className={rowClass}
                             title={errs.join(" | ")}
                           >
-                            {Object.keys(row).map((k) => (
-                              <TableCell
-                                key={k}
-                                className={hasErr ? "text-red-900 dark:text-red-300" : ""}
-                              >
-                                {row[k as keyof typeof row] as string}
-                              </TableCell>
-                            ))}
+                            {Object.keys(row).map((k) => {
+                              const val = row[k as keyof typeof row] as string;
+                              const fallback = headerFallbacks[k];
+                              const isUsingFallback = !val && fallback;
+
+                              return (
+                                <TableCell
+                                  key={k}
+                                  className={hasErr ? "text-red-900 dark:text-red-300" : ""}
+                                >
+                                  {isUsingFallback ? (
+                                    <span className="text-text-muted font-semibold text-xs">
+                                      {fallback}
+                                    </span>
+                                  ) : (
+                                    val
+                                  )}
+                                </TableCell>
+                              );
+                            })}
                           </TableRow>
                         );
                       })}
