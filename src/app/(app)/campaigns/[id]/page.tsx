@@ -534,16 +534,16 @@ export default function CampaignPage() {
 
             {/* RECIPIENTS SECTION */}
             <div className="skeu-card p-0 overflow-hidden">
-              <div className="flex justify-between items-center pr-4">
+              <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center p-3 sm:p-4 gap-2">
                 <button
                   onClick={handleToggleRecipients}
-                  className="flex-1 flex items-center px-5 py-4 font-semibold text-sm text-text-primary hover:bg-bg-subtle/50 transition-colors cursor-pointer"
+                  className="flex-1 flex items-center justify-between sm:justify-start px-2 sm:px-3 py-2 font-semibold text-sm text-text-primary hover:bg-bg-subtle/50 transition-colors cursor-pointer rounded-lg min-w-0"
                 >
-                  <span className="flex items-center gap-2">
-                    <Inbox size={16} className="text-text-muted" />
-                    Recipients & Sending List
+                  <span className="flex items-center gap-2 truncate">
+                    <Inbox size={16} className="text-text-muted shrink-0" />
+                    <span className="truncate">Recipients & Sending List</span>
                   </span>
-                  <div className="flex items-center gap-2 ml-4">
+                  <div className="flex items-center gap-2 ml-2 sm:ml-4 shrink-0">
                     <span className="text-xs font-normal text-text-muted bg-bg-subtle border border-border-subtle px-2 py-0.5 rounded-full">
                       {progress?.total ?? 0}
                     </span>
@@ -561,7 +561,7 @@ export default function CampaignPage() {
                     e.stopPropagation();
                     setIsAddRecipientsOpen(true);
                   }}
-                  className="shrink-0 h-8 gap-1"
+                  className="w-full sm:w-auto shrink-0 h-9 sm:h-8 gap-1 justify-center"
                 >
                   <Plus size={14} /> Add Recipients
                 </Button>

@@ -786,7 +786,7 @@ export default function AddRecipientsModal({
         direction="right"
       >
         <DrawerContent 
-          className="inset-y-0 right-0 h-full w-full sm:max-w-md rounded-none border-l border-border-subtle bg-bg-base p-6 shadow-2xl flex flex-col overflow-hidden text-text-primary mt-0 top-0 left-auto bottom-0 z-[100]"
+          className="inset-y-0 right-0 h-full w-full sm:max-w-md rounded-none border-l border-border-subtle bg-bg-base p-6 shadow-2xl flex flex-col overflow-hidden text-text-primary mt-0 top-0 left-auto bottom-0 z-[60]"
           onPointerDownOutside={(e) => e.preventDefault()}
           onEscapeKeyDown={(e) => e.preventDefault()}
         >
