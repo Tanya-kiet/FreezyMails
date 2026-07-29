@@ -21,6 +21,7 @@ import {
   Settings,
   Mail,
 } from "lucide-react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -87,6 +88,7 @@ type ExtractedWebRow = {
   allEmails: string[];
   companyName: string;
   personName: string;
+  isFallback?: boolean;
   error?: string;
 };
 
@@ -97,7 +99,6 @@ export default function AudienceDetailPage() {
   const [listName, setListName] = useState("");
   const [contacts, setContacts] = useState<Contact[]>([]);
   const [columns, setColumns] = useState<string[]>([]);
-  const [loading, setLoading] = useState(true);
 
   // Spreadsheet state
   const [isDirty, setIsDirty] = useState(false);
@@ -166,48 +167,47 @@ export default function AudienceDetailPage() {
 
   const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
-  const fetchList = useCallback(async () => {
-    // Prevent synchronous setState warning
-    await Promise.resolve();
-    try {
+  const queryClient = useQueryClient();
+
+  const { data: listData, isLoading: loading } = useQuery({
+    queryKey: ["audience-list", id],
+    queryFn: async () => {
       const res = await fetch(`/api/lists/${id}`);
       if (!res.ok) throw new Error("Failed to fetch list");
-      const data = await res.json();
-      setListName(data.name);
+      return res.json();
+    },
+    staleTime: 30 * 1000,
+    enabled: !!id,
+  });
 
-      // Extract unique custom fields
-      const customKeys = new Set<string>();
-      data.contacts.forEach((c: Contact) => {
-        if (c.customFields) {
-          Object.keys(c.customFields).forEach((k) => customKeys.add(k));
-        }
-      });
-      setColumns(Array.from(customKeys));
+  const refetchList = useCallback(() => {
+    queryClient.invalidateQueries({ queryKey: ["audience-list", id] });
+  }, [queryClient, id]);
 
-      // Append one empty row at the end for easy insertion
-      setContacts([
-        ...data.contacts,
-        {
-          id: `new-placeholder-${Date.now()}`,
-          email: "",
-          customFields: {},
-          isNew: true,
-        },
-      ]);
-    } catch {
-      toast.error("Error loading list");
-      router.push("/audience");
-    } finally {
-      setLoading(false);
-    }
-  }, [id, router]);
+  const [prevListData, setPrevListData] = useState<unknown>(null);
 
-  useEffect(() => {
-    const t = setTimeout(() => {
-      fetchList();
-    }, 0);
-    return () => clearTimeout(t);
-  }, [fetchList]);
+  if (listData && listData !== prevListData) {
+    setPrevListData(listData);
+    setListName(listData.name || "");
+
+    const customKeys = new Set<string>();
+    (listData.contacts || []).forEach((c: Contact) => {
+      if (c.customFields) {
+        Object.keys(c.customFields).forEach((k) => customKeys.add(k));
+      }
+    });
+    setColumns(Array.from(customKeys));
+
+    setContacts([
+      ...(listData.contacts || []),
+      {
+        id: "new-placeholder",
+        email: "",
+        customFields: {},
+        isNew: true,
+      },
+    ]);
+  }
 
   const batchSave = async (currentContacts: Contact[]) => {
     if (saving) return;
@@ -231,7 +231,7 @@ export default function AudienceDetailPage() {
       setIsDirty(false);
 
       // Update local IDs with database IDs, re-fetch to ensure sync
-      fetchList();
+      refetchList();
     } catch (error) {
       toast.error("Failed to save. Please try again.");
     } finally {
@@ -1286,7 +1286,11 @@ export default function AudienceDetailPage() {
           onOpenChange={setIsWebImportOpen}
           direction="right"
         >
-          <DrawerContent className="inset-y-0 right-0 h-full w-full sm:max-w-3xl rounded-none sm:rounded-l-2xl border-l border-border-subtle bg-bg-base text-text-primary shadow-2xl flex flex-col p-6 overflow-hidden">
+          <DrawerContent
+            className="inset-y-0 right-0 h-full w-full sm:max-w-3xl rounded-none sm:rounded-l-2xl border-l border-border-subtle bg-bg-base text-text-primary shadow-2xl flex flex-col p-6 overflow-hidden"
+            onPointerDownOutside={(e) => e.preventDefault()}
+            onInteractOutside={(e) => e.preventDefault()}
+          >
             <DrawerHeader className="shrink-0 p-0 mb-4 text-left">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
@@ -1471,17 +1475,24 @@ export default function AudienceDetailPage() {
                           {extractedWebRows.map((row, idx) => (
                             <TableRow key={idx}>
                               <TableCell className="font-mono text-xs font-medium">
-                                {row.email ? (
-                                  <span className="text-primary-base dark:text-primary-base">
-                                    {row.email}
-                                  </span>
-                                ) : (
-                                  <span className="text-text-muted italic">
-                                    No email found
-                                  </span>
-                                )}
+                                <div className="flex items-center gap-2">
+                                  {row.email ? (
+                                    <span className="text-primary-base dark:text-primary-base">
+                                      {row.email}
+                                    </span>
+                                  ) : (
+                                    <span className="text-text-muted italic">
+                                      No email found
+                                    </span>
+                                  )}
+                                  {row.isFallback && (
+                                    <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20 shrink-0">
+                                      Fallback
+                                    </span>
+                                  )}
+                                </div>
                               </TableCell>
-                              <TableCell className="text-xs">
+                              <TableCell className="text-xs font-semibold">
                                 {row.companyName || "-"}
                               </TableCell>
                               <TableCell className="text-xs">
@@ -1698,8 +1709,8 @@ export default function AudienceDetailPage() {
             </DrawerFooter>
           </DrawerContent>
         </Drawer>
-        
-        <ImportToCampaignModal 
+
+        <ImportToCampaignModal
           isOpen={isImportModalOpen}
           onClose={() => setIsImportModalOpen(false)}
           listId={id}

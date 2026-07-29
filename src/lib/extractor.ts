@@ -1,16 +1,43 @@
 import * as cheerio from "cheerio";
 
+export interface ScrapeResult {
+  emails: string[];
+  companyName: string;
+  personName: string;
+  subLinks: string[];
+}
+
+// Helper: De-obfuscate HTML entities and text replacements like [at], (dot)
+export function deobfuscateHtml(rawHtml: string): string {
+  if (!rawHtml) return "";
+
+  // 1. Basic HTML Entity decoding (decimal & hex & common names)
+  let clean = rawHtml
+    .replace(/&#(\d+);/g, (_, dec) => String.fromCharCode(Number(dec)))
+    .replace(/&#x([0-9a-f]+);/gi, (_, hex) => String.fromCharCode(parseInt(hex, 16)))
+    .replace(/&commat;/gi, "@")
+    .replace(/&period;/gi, ".");
+
+  // 2. De-obfuscate text patterns: e.g. "john [at] company [dot] com" -> "john@company.com"
+  clean = clean.replace(/([a-zA-Z0-9._%+-]+)\s*[\(\[]\s*at\s*[\)\]]\s*([a-zA-Z0-9.-]+)\s*[\(\[]\s*dot\s*[\)\]]\s*([a-zA-Z]{2,24})/gi, "$1@$2.$3");
+
+  return clean;
+}
+
 // Helper: Scrape a single URL HTML and extract candidates
 export async function fetchAndScrapePage(
   url: string,
   targetDomain: string,
   baseHostname: string,
   isSubPage = false
-): Promise<{ emails: string[]; companyName: string; personName: string; subLinks: string[] }> {
+): Promise<ScrapeResult> {
   const emails: string[] = [];
   const subLinks: string[] = [];
   let companyName = "";
   let personName = "";
+  let linkedinUrl: string | undefined;
+  let twitterUrl: string | undefined;
+  let phone: string | undefined;
 
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), isSubPage ? 4000 : 6000);
@@ -37,7 +64,8 @@ export async function fetchAndScrapePage(
       return { emails, companyName, personName, subLinks };
     }
 
-    const html = await res.text();
+    const rawHtml = await res.text();
+    const html = deobfuscateHtml(rawHtml);
     const $ = cheerio.load(html);
 
     // 1. Extract mailto: links
@@ -55,7 +83,21 @@ export async function fetchAndScrapePage(
       if (isValidEmail(cleaned)) emails.push(cleaned);
     });
 
-    // 3. Extract Company Name (if not subpage or if strong)
+    // 3. Extract Social & Phone Links
+    $("a[href]").each((_, el) => {
+      const href = $(el).attr("href") || "";
+      if (!linkedinUrl && href.includes("linkedin.com/company/")) {
+        linkedinUrl = href.trim();
+      }
+      if (!twitterUrl && (href.includes("twitter.com/") || href.includes("x.com/")) && !href.includes("intent/tweet")) {
+        twitterUrl = href.trim();
+      }
+      if (!phone && href.startsWith("tel:")) {
+        phone = href.replace(/^tel:/i, "").trim();
+      }
+    });
+
+    // 4. Extract Company Name (if not subpage or if strong)
     if (!isSubPage) {
       const ogSiteName = $('meta[property="og:site_name"]').attr("content")?.trim();
       const appName = $('meta[name="application-name"]').attr("content")?.trim();
@@ -96,7 +138,7 @@ export async function fetchAndScrapePage(
       }
     }
 
-    // 4. Extract Person Name
+    // 5. Extract Person Name
     // Check JSON-LD Person
     $('script[type="application/ld+json"]').each((_, el) => {
       try {
@@ -131,7 +173,7 @@ export async function fetchAndScrapePage(
       }
     }
 
-    // 5. If main page, find subLinks to explore careers / contact / about pages
+    // 6. If main page, find subLinks to explore careers / contact / about pages
     if (!isSubPage) {
       $("a[href]").each((_, el) => {
         const href = $(el).attr("href") || "";
@@ -177,7 +219,9 @@ export function isValidEmail(email: string): boolean {
     ".png", ".jpg", ".jpeg", ".svg", ".gif", ".webp", ".js", ".css",
     "@2x", "@3x", "sentry.io", "wixpress.com", "schema.org", "w3.org",
     "example.com", "domain.com", "yourdomain.com", "react.js", "node.js",
-    "next.js", "xxx@", "email@", "info@example", "user@domain", "test@"
+    "next.js", "xxx@", "email@", "info@example", "user@domain", "test@",
+    "@babel/", "@types/", "@emotion/", "@radix-ui/", "@tanstack/", "npm@",
+    "bootstrap@", "react-dom@", "typescript@"
   ];
 
   for (const forbidden of forbiddenStrings) {
@@ -231,6 +275,18 @@ export function sortEmailsByPriority(emails: string[], targetDomain: string): st
     // 4. Shorter / cleaner email length wins ties
     return a.length - b.length;
   });
+}
+
+export function generateFallbackEmails(domain: string): string[] {
+  if (!domain) return [];
+  const cleanDomain = domain.replace(/^(https?:\/\/)?(www\.)?/, "").split("/")[0];
+  return [
+    `careers@${cleanDomain}`,
+    `contact@${cleanDomain}`,
+    `info@${cleanDomain}`,
+    `hello@${cleanDomain}`,
+    `support@${cleanDomain}`
+  ];
 }
 
 export function derivePersonNameFromEmail(email: string): string {
