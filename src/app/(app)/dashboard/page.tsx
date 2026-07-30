@@ -16,6 +16,48 @@ function timeAgo(date: Date) {
   return `${days}d ago`;
 }
 
+const getCachedData = unstable_cache(
+  async (userId: string) => {
+    const sevenDaysAgoDate = new Date();
+    sevenDaysAgoDate.setDate(sevenDaysAgoDate.getDate() - 7);
+
+    return await Promise.all([
+      prisma.emailAccount.findMany({
+        where: { userId, isActive: true },
+      }),
+      prisma.campaign.findMany({
+        where: { userId },
+        include: { _count: { select: { recipients: true } } },
+      }),
+      prisma.mailEvent.findMany({
+        where: {
+          campaign: { userId },
+          occurredAt: { gte: sevenDaysAgoDate },
+        },
+      }),
+      prisma.recipient.groupBy({
+        by: ["campaignId", "status"],
+        where: { campaign: { userId } },
+        _count: { _all: true },
+      }),
+      prisma.recipient.findMany({
+        where: {
+          campaign: { userId },
+          status: { in: ["FAILED", "BOUNCED"] },
+          createdAt: { gt: sevenDaysAgoDate },
+        },
+        include: { campaign: true },
+        orderBy: { createdAt: "desc" },
+        take: 20,
+      }),
+      prisma.template.count({ where: { userId } }),
+      prisma.mailingList.count({ where: { userId } }),
+    ]);
+  },
+  ["dashboard-data"],
+  { revalidate: 30, tags: ["dashboard"] },
+);
+
 export default async function Dashboard() {
   const user = await getUser();
   if (!user) return null;
@@ -26,51 +68,6 @@ export default async function Dashboard() {
     "there";
 
   const now = new Date();
-
-  const sevenDaysAgo = new Date(now);
-  sevenDaysAgo.setDate(now.getDate() - 7);
-
-  const getCachedData = unstable_cache(
-    async (userId: string) => {
-      const sevenDaysAgoDate = new Date();
-      sevenDaysAgoDate.setDate(sevenDaysAgoDate.getDate() - 7);
-
-      return await Promise.all([
-        prisma.emailAccount.findMany({
-          where: { userId, isActive: true },
-        }),
-        prisma.campaign.findMany({
-          where: { userId },
-          include: { _count: { select: { recipients: true } } },
-        }),
-        prisma.mailEvent.findMany({
-          where: {
-            campaign: { userId },
-            occurredAt: { gte: sevenDaysAgoDate },
-          },
-        }),
-        prisma.recipient.groupBy({
-          by: ["campaignId", "status"],
-          where: { campaign: { userId } },
-          _count: { _all: true },
-        }),
-        prisma.recipient.findMany({
-          where: {
-            campaign: { userId },
-            status: { in: ["FAILED", "BOUNCED"] },
-            createdAt: { gt: sevenDaysAgoDate },
-          },
-          include: { campaign: true },
-          orderBy: { createdAt: "desc" },
-          take: 20,
-        }),
-        prisma.template.count({ where: { userId } }),
-        prisma.mailingList.count({ where: { userId } }),
-      ]);
-    },
-    ["dashboard-data", user.id],
-    { revalidate: 30, tags: ["dashboard"] },
-  );
 
   let data: Awaited<ReturnType<typeof getCachedData>> | null = null;
 
@@ -146,6 +143,11 @@ export default async function Dashboard() {
       date: d,
       count: 0,
       label: d.toLocaleDateString("en-US", { weekday: "short" }),
+      dateStr: d.toLocaleDateString("en-US", {
+        weekday: "short",
+        month: "short",
+        day: "numeric",
+      }),
     };
   });
 
@@ -444,7 +446,7 @@ export default async function Dashboard() {
                 topFeed.map((item, idx) => (
                   <Link
                     href={item.link}
-                    key={idx}
+                    key={`${item.type}-${item.link}-${idx}`}
                     className="flex items-start gap-3 py-3 px-4 hover:bg-bg-subtle/50 transition-colors block cursor-pointer"
                   >
                     <div

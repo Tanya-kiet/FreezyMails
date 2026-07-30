@@ -10,7 +10,7 @@ import {
 export function SendingVolumeChart({
   data,
 }: {
-  data: { date: Date; count: number; label: string }[];
+  data: { date: Date; count: number; label: string; dateStr?: string }[];
 }) {
   // Config for shadcn chart
   const chartConfig = {
@@ -38,7 +38,19 @@ export function SendingVolumeChart({
           <ChartTooltip
             cursor={false}
             content={
-              <ChartTooltipContent className="bg-primary-base text-primary-text border-transparent [&_.text-muted-foreground]:text-primary-text/80 [&_.text-foreground]:text-primary-text" />
+              <ChartTooltipContent
+                labelFormatter={(value, payload) => {
+                  if (
+                    payload &&
+                    payload.length > 0 &&
+                    payload[0]?.payload?.dateStr
+                  ) {
+                    return payload[0].payload.dateStr;
+                  }
+                  return value;
+                }}
+                className="bg-primary-base text-primary-text border-transparent [&_.text-muted-foreground]:text-primary-text/80 [&_.text-foreground]:text-primary-text"
+              />
             }
           />
           <Bar
