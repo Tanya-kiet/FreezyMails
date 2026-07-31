@@ -34,7 +34,7 @@ const navItems = [
   { href: "/audience", label: "Mailing Lists", icon: Users },
   { href: "/templates", label: "Templates", icon: FileText },
   { href: "/accounts", label: "Accounts", icon: Server },
-  { href: "/analytics", label: "Analytics", icon: BarChart2, disabled: true },
+  { href: "/analytics", label: "Analytics", icon: BarChart2, disabled: false },
   { href: "/settings", label: "Settings", icon: Settings },
 ];
 

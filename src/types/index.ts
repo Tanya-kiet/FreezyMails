@@ -3,9 +3,11 @@ export interface CampaignStatRow {
   name: string;
   sent: number;
   opened: number;
+  clicked: number;
   replied: number;
   failed: number;
   openRate: number;
+  clickRate: number;
   replyRate: number;
   createdAt: string | Date;
   [key: string]: string | number | Date; // Index signature for sorting
@@ -20,4 +22,19 @@ export interface DashboardStatCard {
   label: string;
   value: number | string;
   sub: string;
+}
+
+export interface TemplateStatRow {
+  id: string;
+  name: string;
+  campaignCount: number;
+  sent: number;
+  opened: number;
+  clicked: number;
+  replied: number;
+  failed: number;
+  openRate: number;
+  clickRate: number;
+  replyRate: number;
+  [key: string]: string | number;
 }

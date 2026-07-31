@@ -36,6 +36,12 @@ const TOUR_STEPS = [
     text: "Manage and respond to prospect replies in real-time.",
     side: "right" as const,
   },
+  {
+    id: "analytics",
+    selector: 'a[href="/analytics"]',
+    text: "Monitor your performance and conversion rates.",
+    side: "right" as const,
+  },
 ];
 
 const STORAGE_KEY = "freezymails_tour_completed";

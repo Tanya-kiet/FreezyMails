@@ -1,22 +1,16 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { CampaignStatRow } from "@/types";
 import { ArrowDown, ArrowUp, ArrowUpDown } from "lucide-react";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
 
 export default function CampaignStatsTable({
   data,
 }: {
   data: CampaignStatRow[];
 }) {
+  const router = useRouter();
   const [sortField, setSortField] = useState("createdAt");
   const [sortOrder, setSortOrder] = useState<"asc" | "desc">("desc");
 
@@ -48,64 +42,83 @@ export default function CampaignStatsTable({
       return (
         <ArrowUpDown
           size={14}
-          className="text-text-muted dark:text-text-muted"
+          className="text-text-muted opacity-50 ml-1 inline-block"
         />
       );
     return sortOrder === "asc" ? (
-      <ArrowUp size={14} className="text-primary-base" />
+      <ArrowUp size={14} className="text-primary-base ml-1 inline-block" />
     ) : (
-      <ArrowDown size={14} className="text-primary-base" />
+      <ArrowDown size={14} className="text-primary-base ml-1 inline-block" />
     );
   };
 
   const thClass =
-    "cursor-pointer select-none font-semibold text-text-primary hover:bg-bg-subtle transition";
+    "px-4 py-3 font-medium border-b border-border-subtle cursor-pointer select-none hover:bg-bg-subtle transition";
+  const tdClass = "px-4 py-3";
 
   const renderTh = (field: string, label: string) => (
-    <TableHead className={thClass} onClick={() => handleSort(field)}>
-      <div className="flex items-center gap-1">
+    <th className={thClass} onClick={() => handleSort(field)}>
+      <div className="flex items-center">
         {label}
         {getSortIcon(field)}
       </div>
-    </TableHead>
+    </th>
   );
 
   return (
-    <div className="skeu-card overflow-hidden">
-      <Table>
-        <TableHeader className="bg-bg-subtle border-b border-border-subtle">
-          <TableRow className="hover:bg-transparent">
-            {renderTh("name", "Campaign Name")}
-            {renderTh("sent", "Sent")}
-            {renderTh("opened", "Opened")}
-            {renderTh("openRate", "Open %")}
-            {renderTh("replied", "Replied")}
-            {renderTh("replyRate", "Reply %")}
-            {renderTh("failed", "Failed")}
-            {renderTh("createdAt", "Date")}
-          </TableRow>
-        </TableHeader>
-        <TableBody>
-          {sortedData.map((row) => (
-            <TableRow key={row.id}>
-              <TableCell className="font-medium text-text-primary">
-                {row.name}
-              </TableCell>
-              <TableCell>{row.sent}</TableCell>
-              <TableCell>{row.opened}</TableCell>
-              <TableCell>{row.openRate.toFixed(1)}%</TableCell>
-              <TableCell>{row.replied}</TableCell>
-              <TableCell>{row.replyRate.toFixed(1)}%</TableCell>
-              <TableCell className="text-danger-text font-medium">
-                {row.failed}
-              </TableCell>
-              <TableCell className="text-text-muted">
-                {new Date(row.createdAt).toLocaleDateString()}
-              </TableCell>
-            </TableRow>
-          ))}
-        </TableBody>
-      </Table>
+    <div className="skeu-card -skeu-base overflow-hidden flex-1 flex flex-col min-h-0 mt-2">
+      <div className="overflow-y-auto overflow-x-auto flex-1">
+        <table className="w-full text-left text-sm whitespace-nowrap min-w-[750px]">
+          <thead className="bg-bg-subtle text-text-muted sticky top-0 z-10">
+            <tr>
+              {renderTh("name", "Campaign Name")}
+              {renderTh("sent", "Sent")}
+              {renderTh("opened", "Opened")}
+              {renderTh("openRate", "Open %")}
+              {renderTh("clicked", "Clicked")}
+              {renderTh("clickRate", "Click %")}
+              {renderTh("replied", "Replied")}
+              {renderTh("replyRate", "Reply %")}
+              {renderTh("failed", "Failed")}
+              {renderTh("createdAt", "Date")}
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-border-subtle">
+            {sortedData.length === 0 ? (
+              <tr>
+                <td colSpan={10} className="px-4 py-12 text-center text-text-muted">
+                  No campaign stats found.
+                </td>
+              </tr>
+            ) : (
+              sortedData.map((row) => (
+                <tr
+                  key={row.id}
+                  onClick={() => router.push(`/campaigns/${row.id}`)}
+                  className="hover:bg-bg-subtle/50 transition-colors cursor-pointer group"
+                >
+                  <td className={`${tdClass} font-medium text-text-primary`}>
+                    {row.name}
+                  </td>
+                  <td className={tdClass}>{row.sent}</td>
+                  <td className={tdClass}>{row.opened}</td>
+                  <td className={tdClass}>{row.openRate.toFixed(1)}%</td>
+                  <td className={tdClass}>{row.clicked}</td>
+                  <td className={tdClass}>{row.clickRate.toFixed(1)}%</td>
+                  <td className={tdClass}>{row.replied}</td>
+                  <td className={tdClass}>{row.replyRate.toFixed(1)}%</td>
+                  <td className={`${tdClass} text-danger-text font-medium`}>
+                    {row.failed}
+                  </td>
+                  <td className={`${tdClass} text-text-muted`}>
+                    {new Date(row.createdAt).toLocaleDateString()}
+                  </td>
+                </tr>
+              ))
+            )}
+          </tbody>
+        </table>
+      </div>
     </div>
   );
 }

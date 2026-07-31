@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server'
 import prisma from '@/lib/prisma'
 import { getUser } from '@/lib/supabase'
 import { sendEmail } from '@/lib/mailer'
-import { renderTemplate } from '@/lib/template-parser'
+import { renderTemplate, wrapLinksForTracking } from '@/lib/template-parser'
 import { MailEventType } from '@prisma/client'
 
 export async function POST(request: Request) {
@@ -39,7 +39,8 @@ export async function POST(request: Request) {
     const renderedSubject = renderTemplate(subject, dynamicData)
     const renderedBody = renderTemplate(emailBody, dynamicData)
 
-    const appUrl = process.env.NEXT_PUBLIC_APP_URL || ''
+    const appUrl = (process.env.NEXT_PUBLIC_APP_URL || process.env.APP_URL || '').replace(/\/$/, '')
+    const finalBody = wrapLinksForTracking(renderedBody, recipient.id, appUrl)
     const trackingPixelUrl = `${appUrl}/api/track/open/${recipient.id}`
 
     // Send the email synchronously
@@ -47,7 +48,7 @@ export async function POST(request: Request) {
       account,
       recipient.email,
       renderedSubject,
-      renderedBody,
+      finalBody,
       trackingPixelUrl
     )
 
@@ -68,7 +69,8 @@ export async function POST(request: Request) {
     })
 
     return NextResponse.json({ success: true, messageId: sendResult.messageId })
-  } catch (err: any) {
-    return NextResponse.json({ error: err.message }, { status: 500 })
+  } catch (err: unknown) {
+    const errorMessage = err instanceof Error ? err.message : "Internal Server Error";
+    return NextResponse.json({ error: errorMessage }, { status: 500 })
   }
 }
