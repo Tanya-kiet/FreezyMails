@@ -128,14 +128,7 @@ export async function handleSendEmail(jobOrJobs: Job<SendEmailData> | Job<SendEm
       const renderedSubject = renderTemplate(subject, dynamicData, templateFallbacks)
       
       const appUrl = process.env.NEXT_PUBLIC_APP_URL || ''
-      const unsubscribeUrl = `${appUrl}/api/unsubscribe/${recipient.id}`
-      
-      let finalBody = renderedBody.replace(/{{unsubscribeLink}}/g, unsubscribeUrl)
-      if (!finalBody.includes(unsubscribeUrl)) {
-        finalBody += `\n\n<p><a href="${unsubscribeUrl}" style="color:#9ca3af;font-size:12px">Unsubscribe</a></p>`
-      }
-
-      finalBody = wrapLinksForTracking(finalBody, recipient.id, appUrl)
+      const finalBody = wrapLinksForTracking(renderedBody, recipient.id, appUrl)
       
       const pixelUrl = `${appUrl}/api/track/open/${recipient.id}`
       
