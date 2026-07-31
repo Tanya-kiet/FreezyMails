@@ -6,6 +6,20 @@ import { simpleParser } from "mailparser";
 import { getValidAccessToken } from "./google-auth";
 import { renderTemplate } from "./template-parser";
 
+async function withDbRetry<T>(fn: () => Promise<T>): Promise<T> {
+  try {
+    return await fn();
+  } catch (err: unknown) {
+    const error = err as { code?: string; message?: string };
+    if (error?.code === "P1017" || error?.message?.includes("closed the connection")) {
+      console.warn("[IMAP Sync] Prisma connection closed. Reconnecting...");
+      await prisma.$connect().catch(() => {});
+      return await fn();
+    }
+    throw err;
+  }
+}
+
 async function classifyReply(replyId: string, body: string) {
   try {
     const { GoogleGenerativeAI } = await import('@google/generative-ai')
@@ -16,7 +30,7 @@ async function classifyReply(replyId: string, body: string) {
     const text = result.response.text().trim().toUpperCase().replace(/[^A-Z_]/g, '')
     const valid = ['INTERESTED', 'NOT_INTERESTED', 'OUT_OF_OFFICE', 'SPAM', 'OTHER']
     const classification = valid.includes(text) ? text : 'OTHER'
-    await prisma.reply.update({ where: { id: replyId }, data: { classification: classification as import('@prisma/client').ReplyCategory } })
+    await withDbRetry(() => prisma.reply.update({ where: { id: replyId }, data: { classification: classification as import('@prisma/client').ReplyCategory } }))
   } catch (err) {
     console.error('Reply classification failed:', err)
   }
@@ -86,19 +100,21 @@ export async function pollReplies(account: EmailAccount) {
         // Try to extract original recipient
         const emailRegex = /([a-zA-Z0-9._-]+@[a-zA-Z0-9._-]+\.[a-zA-Z0-9_-]+)/gi;
         const matches = text.match(emailRegex) || [];
-        
-        // Find matching recipient in DB
+        const uniqueEmails = Array.from(new Set(matches.map((e) => e.toLowerCase())));
+
+        // Find matching recipient in DB with single query and retry protection
         let bouncedRecipient = null;
-        for (const email of matches) {
-          bouncedRecipient = await prisma.recipient.findFirst({
-            where: {
-              email: { equals: email, mode: 'insensitive' },
-              status: 'SENT',
-              campaign: { emailAccounts: { some: { id: account.id } } }
-            },
-            include: { campaign: true }
-          });
-          if (bouncedRecipient) break;
+        if (uniqueEmails.length > 0) {
+          bouncedRecipient = await withDbRetry(() =>
+            prisma.recipient.findFirst({
+              where: {
+                email: { in: uniqueEmails, mode: "insensitive" },
+                status: "SENT",
+                campaign: { emailAccounts: { some: { id: account.id } } },
+              },
+              include: { campaign: true },
+            })
+          );
         }
 
         if (bouncedRecipient) {

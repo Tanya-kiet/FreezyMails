@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { format } from "date-fns";
 import { Search, Calendar as CalendarIcon, X, RefreshCw } from "lucide-react";
 import { useRouter, useSearchParams } from "next/navigation";
@@ -54,19 +54,31 @@ export default function SentMailsList({
   currentDate,
 }: SentMailsListProps) {
   const mails = initialData; // Always strictly driven by server data
-  const [searchQuery, setSearchQuery] = useState("");
+  const [localSearch, setLocalSearch] = useState("");
+  const [debouncedSearch, setDebouncedSearch] = useState("");
   const [selectedMail, setSelectedMail] = useState<SentMailData | null>(null);
-  
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearch(localSearch);
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [localSearch]);
+
   const router = useRouter();
   const searchParams = useSearchParams();
 
-  // Client-side text filter on the current page's batch
-  const filteredMails = mails.filter(
-    (m) =>
-      m.email.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      m.subject.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      m.campaignName.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+  // Client-side text filter on the current page's batch (memoized & debounced)
+  const filteredMails = useMemo(() => {
+    if (!debouncedSearch.trim()) return mails;
+    const query = debouncedSearch.toLowerCase();
+    return mails.filter(
+      (m) =>
+        m.email.toLowerCase().includes(query) ||
+        m.subject.toLowerCase().includes(query) ||
+        m.campaignName.toLowerCase().includes(query)
+    );
+  }, [mails, debouncedSearch]);
 
   useEffect(() => {
     const intervalId = setInterval(() => {
@@ -106,10 +118,22 @@ export default function SentMailsList({
           />
           <Input
             placeholder="Search email, subject, or campaign..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="skeu-input pl-9 w-full"
+            value={localSearch}
+            onChange={(e) => setLocalSearch(e.target.value)}
+            className="skeu-input pl-9 pr-8 w-full"
           />
+          {localSearch && (
+            <button
+              type="button"
+              onClick={() => {
+                setLocalSearch("");
+                setDebouncedSearch("");
+              }}
+              className="absolute right-2.5 top-1/2 -translate-y-1/2 text-text-muted hover:text-text-primary p-0.5 rounded-full"
+            >
+              <X size={14} />
+            </button>
+          )}
         </div>
 
         <div className="flex flex-wrap items-center gap-3">

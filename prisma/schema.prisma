@@ -204,6 +204,9 @@ model Reply {
   recipient      Recipient      @relation(fields: [recipientId], references: [id], onDelete: Cascade)
 
   @@index([campaignId, receivedAt])
+  @@index([campaignId, isFlagged])
+  @@index([campaignId, isRead])
+  @@index([campaignId, classification])
 }
 
 enum CampaignStatus {

@@ -9,7 +9,7 @@ export async function POST(request: Request, props: { params: Promise<{ id: stri
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
   try {
-    const { body, subject: customSubject } = await request.json()
+    const { body, subject: customSubject, attachments } = await request.json()
     
     let emailAccountToUse = null;
     let toEmailToUse = '';
@@ -107,7 +107,7 @@ export async function POST(request: Request, props: { params: Promise<{ id: stri
 
     const safeBody = escapeHtml(body).replace(/\n/g, '<br/>')
 
-    await sendEmail(emailAccountToUse, toEmailToUse, subject, safeBody)
+    await sendEmail(emailAccountToUse, toEmailToUse, subject, safeBody, undefined, attachments)
 
     if (reply) {
       await prisma.reply.update({

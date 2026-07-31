@@ -32,8 +32,18 @@ export async function proxy(request: NextRequest) {
     const { data } = await supabase.auth.getUser()
     user = data.user
   } catch (error) {
-    console.error('Supabase getUser error in middleware:', error)
-    user = null
+    const errMsg = error instanceof Error ? error.message : String(error)
+    if (errMsg.includes('timeout') || errMsg.includes('Connect') || errMsg.includes('fetch failed')) {
+      try {
+        const { data } = await supabase.auth.getUser()
+        user = data.user
+      } catch (_) {
+        user = null
+      }
+    } else {
+      console.error('Supabase getUser error in middleware:', error)
+      user = null
+    }
   }
 
   const protectedPaths = ['/dashboard', '/campaigns', '/templates', '/accounts', '/inbox', '/analytics', '/settings']

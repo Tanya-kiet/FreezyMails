@@ -30,9 +30,9 @@ interface InboxState {
   error: string | null;
   hasFetched: boolean;
   searchQuery: string;
-  filterType: 'ALL' | 'UNREAD' | 'SENT' | 'RECEIVED' | 'INTERESTED' | 'NOT_INTERESTED' | 'OUT_OF_OFFICE' | 'SPAM' | 'OTHER';
+  filterType: 'ALL' | 'UNREAD' | 'SENT' | 'RECEIVED' | 'FOLLOW_UP' | 'INTERESTED' | 'NOT_INTERESTED' | 'OUT_OF_OFFICE' | 'SPAM' | 'OTHER';
   setSearchQuery: (query: string) => void;
-  setFilterType: (filter: 'ALL' | 'UNREAD' | 'SENT' | 'RECEIVED' | 'INTERESTED' | 'NOT_INTERESTED' | 'OUT_OF_OFFICE' | 'SPAM' | 'OTHER') => void;
+  setFilterType: (filter: 'ALL' | 'UNREAD' | 'SENT' | 'RECEIVED' | 'FOLLOW_UP' | 'INTERESTED' | 'NOT_INTERESTED' | 'OUT_OF_OFFICE' | 'SPAM' | 'OTHER') => void;
   fetchReplies: () => Promise<void>;
   markAsRead: (id: string) => void;
   updateReply: (id: string, data: Partial<Reply>) => void;

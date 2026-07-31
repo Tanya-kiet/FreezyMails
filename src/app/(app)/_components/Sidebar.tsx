@@ -29,7 +29,7 @@ import { Logo } from "@/components/ui/Logo";
 const navItems = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
   { href: "/campaigns", label: "Campaigns", icon: Mail },
-  { href: "/inbox", label: "Inbox", icon: Inbox, disabled: true },
+  { href: "/inbox", label: "Inbox", icon: Inbox },
   { href: "/sent-mails", label: "Sent Mails", icon: Send },
   { href: "/audience", label: "Mailing Lists", icon: Users },
   { href: "/templates", label: "Templates", icon: FileText },
@@ -127,7 +127,7 @@ export default function Sidebar({ user }: { user: User }) {
                     item.href === "/inbox" &&
                     unreadCount > 0 &&
                     !item.disabled && (
-                      <span className="bg-primary-base text-white text-xs font-bold px-2 py-0.5 rounded-full -sm">
+                      <span className="bg-primary-base text-primary-text text-[11px] font-bold px-2 py-0.8 rounded-full shadow-xs tracking-tight">
                         {unreadCount}
                       </span>
                     )}
@@ -135,7 +135,7 @@ export default function Sidebar({ user }: { user: User }) {
                     item.href === "/inbox" &&
                     unreadCount > 0 &&
                     !item.disabled && (
-                      <span className="absolute top-2 right-2 w-2 h-2 bg-primary-base rounded-full"></span>
+                      <span className="absolute top-2 right-2 w-2.5 h-2.5 bg-primary-base rounded-full border border-bg-base shadow-xs"></span>
                     )}
                 </>
               );

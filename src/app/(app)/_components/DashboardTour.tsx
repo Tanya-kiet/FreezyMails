@@ -30,6 +30,12 @@ const TOUR_STEPS = [
     text: "Launch and orchestrate your outreach.",
     side: "right" as const,
   },
+  {
+    id: "inbox",
+    selector: 'a[href="/inbox"]',
+    text: "Manage and respond to prospect replies in real-time.",
+    side: "right" as const,
+  },
 ];
 
 const STORAGE_KEY = "freezymails_tour_completed";
