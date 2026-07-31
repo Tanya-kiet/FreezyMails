@@ -19,6 +19,17 @@ export default async function AccountsPage() {
   const user = await getUser();
   if (!user) return null;
 
+  const generateVariant = (email: string) => {
+    const [local, domain] = email.split("@");
+
+    let hash = 0;
+    for (const ch of email) {
+      hash = (hash * 31 + ch.charCodeAt(0)) >>> 0;
+    }
+
+    return `${local}${hash % 1000}@${domain}`;
+  };
+
   const accounts = await prisma.emailAccount.findMany({
     where: { userId: user.id },
     select: {
@@ -62,6 +73,25 @@ export default async function AccountsPage() {
 
           <div>
             <h2 className="text-xl font-semibold mb-4">Add Account</h2>
+
+            {/* Warning note */}
+            <div className="skeu-card p-4 mb-4 flex items-start gap-3">
+              <div className="w-1 self-stretch rounded-full bg-warning-text shrink-0" />
+              <div className="space-y-1">
+                <p className="text-xs font-semibold text-text-primary">
+                  Do not use your primary email
+                </p>
+                <p className="text-xs text-text-muted leading-relaxed">
+                  Cold outreach risks your sender domain being flagged or
+                  blacklisted. Create a dedicated address (e.g.{" "}
+                  <span className="font-mono text-text-primary text-[11px]">
+                    {generateVariant(user.email as string)}
+                  </span>
+                  ) to keep your main inbox safe.
+                </p>
+              </div>
+            </div>
+
             <div className="skeu-card">
               <AccountForm />
             </div>
