@@ -5,6 +5,8 @@ import { toast } from "sonner";
 import { RefreshCcw, ShieldCheck, ShieldAlert } from "lucide-react";
 import RefreshHealthButton from "./RefreshHealthButton";
 import DisconnectAccountButton from "./DisconnectAccountButton";
+import DomainHealthModal from "./DomainHealthModal";
+import { Button } from "@/components/ui/button";
 
 type AccountProps = {
   acc: {
@@ -26,8 +28,9 @@ export default function AccountCard({ acc: initialAcc }: AccountProps) {
     string,
     { status: string; message: string }
   > | null>(null);
+  const [isResetModalOpen, setIsResetModalOpen] = useState(false);
 
-  let healthColor = "text-green-600";
+  let healthColor = "text-success-text";
   if (acc.healthScore < 50) healthColor = "text-danger-text";
   else if (acc.healthScore <= 80) healthColor = "text-warning-text";
 
@@ -171,10 +174,28 @@ export default function AccountCard({ acc: initialAcc }: AccountProps) {
           )}
         </div>
         <div className="flex items-center gap-2">
+          {acc.healthScore === 0 && (
+            <Button
+              variant="danger"
+              size="sm"
+              onClick={() => setIsResetModalOpen(true)}
+            >
+              Reset Score
+            </Button>
+          )}
           <RefreshHealthButton accountId={acc.id} />
           <DisconnectAccountButton accountId={acc.id} />
         </div>
       </div>
+      
+      {acc.healthScore === 0 && (
+        <DomainHealthModal 
+          isOpen={isResetModalOpen}
+          setIsOpen={setIsResetModalOpen}
+          accountId={acc.id}
+          onResetComplete={() => setAcc({ ...acc, healthScore: 100 })}
+        />
+      )}
     </li>
   );
 }

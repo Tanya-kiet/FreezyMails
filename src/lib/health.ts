@@ -24,6 +24,12 @@ export async function computeHealthScore(accountId: string): Promise<number> {
   let fails = 0
 
   events.forEach(e => {
+    // Skip events that the user has manually chosen to ignore/reset
+    const meta = e.metadata as { ignoredForHealth?: boolean } | null;
+    if (meta && meta.ignoredForHealth) {
+      return;
+    }
+
     if (e.type === 'SENT') totalSent++
     else if (e.type === 'BOUNCED') {
       bounces++

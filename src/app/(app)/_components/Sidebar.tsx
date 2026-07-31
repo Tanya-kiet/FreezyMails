@@ -131,12 +131,7 @@ export default function Sidebar({ user }: { user: User }) {
                         {unreadCount}
                       </span>
                     )}
-                  {isCollapsed &&
-                    item.href === "/inbox" &&
-                    unreadCount > 0 &&
-                    !item.disabled && (
-                      <span className="absolute top-2 right-2 w-2.5 h-2.5 bg-primary-base rounded-full border border-bg-base shadow-xs"></span>
-                    )}
+                 
                 </>
               );
 

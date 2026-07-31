@@ -5,6 +5,7 @@ import { getUser } from "@/lib/supabase";
 import Link from "next/link";
 import { Card } from "@/components/ui/card";
 import { unstable_cache } from "next/cache";
+import HealthAlertBanner from "./_components/HealthAlertBanner";
 
 function timeAgo(date: Date) {
   const diff = new Date().getTime() - date.getTime();
@@ -320,6 +321,7 @@ export default async function Dashboard() {
             </h1>
             <p className="text-sm text-text-muted">{dateString}</p>
           </div>
+
           <Link
             href="/campaigns/new"
             className="skeu-btn-primary whitespace-nowrap"
@@ -327,6 +329,9 @@ export default async function Dashboard() {
             + New campaign
           </Link>
         </div>
+
+        {/* HEALTH BANNER */}
+        <HealthAlertBanner activeAccounts={activeAccounts} />
 
         {/* TOP METRICS (YC Style) */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
