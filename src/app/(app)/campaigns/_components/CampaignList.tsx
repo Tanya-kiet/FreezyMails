@@ -254,6 +254,9 @@ export default function CampaignList({
                   Sent
                 </TableHead>
                 <TableHead className="font-semibold text-text-primary">
+                  Replies
+                </TableHead>
+                <TableHead className="font-semibold text-text-primary">
                   Last Sent
                 </TableHead>
                 <TableHead className="font-semibold text-text-primary">
@@ -293,6 +296,7 @@ export default function CampaignList({
                     </span>
                   </TableCell>
                   <TableCell>{c.stats.sent}</TableCell>
+                  <TableCell>{c.stats.replies}</TableCell>
                   <TableCell className="text-text-muted">
                     {c.stats.lastSentAt
                       ? formatDateTime(c.stats.lastSentAt)

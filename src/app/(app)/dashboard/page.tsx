@@ -1,4 +1,4 @@
-import { Users, Settings } from "lucide-react";
+import { Users, Settings, MessageSquare } from "lucide-react";
 import prisma from "@/lib/prisma";
 import { SendingVolumeChart } from "./_components/SendingVolumeChart";
 import { getUser } from "@/lib/supabase";
@@ -52,6 +52,12 @@ const getCachedData = unstable_cache(
       }),
       prisma.template.count({ where: { userId } }),
       prisma.mailingList.count({ where: { userId } }),
+      prisma.reply.findMany({
+        where: { campaign: { userId } },
+        include: { campaign: true },
+        orderBy: { receivedAt: "desc" },
+        take: 30,
+      }),
     ]);
   },
   ["dashboard-data"],
@@ -104,6 +110,7 @@ export default async function Dashboard() {
     recentFailed,
     templateCount,
     mailingListCount,
+    replies,
   ] = data;
 
   // --- YC-STYLE STAT CALCULATIONS ---
@@ -133,6 +140,10 @@ export default async function Dashboard() {
     totalSentEvents > 0
       ? ((totalBounceEvents / totalSentEvents) * 100).toFixed(1)
       : "0.0";
+
+  const totalReplies = replies.length;
+  const unreadReplies = replies.filter((r) => !r.isRead);
+  const unreadCount = unreadReplies.length;
 
   // 2. Sending Volume Trend (last 7 days)
   const last7DaysData = Array.from({ length: 7 }).map((_, i) => {
@@ -195,7 +206,7 @@ export default async function Dashboard() {
 
   // --- FEED GENERATION (Actionable Audit Log) ---
   const feedItems: {
-    type: "draft" | "fix" | "setup";
+    type: "draft" | "fix" | "setup" | "reply";
     title: string;
     subtitle: string;
     date: Date;
@@ -269,6 +280,22 @@ export default async function Dashboard() {
       date: new Date(r.sentAt || r.createdAt || new Date()),
       initial: (r.email || "U").charAt(0).toUpperCase(),
       link: `/campaigns/${r.campaign?.id || ""}`,
+    });
+  }
+
+  // 3. Unread / Flagged Prospect Replies in Needs Attention
+  const attentionReplies = replies.filter((r) => !r.isRead || r.isFlagged);
+  for (const r of attentionReplies) {
+    const isUnread = !r.isRead;
+    const filterParam = isUnread ? "UNREAD" : r.isFlagged ? "FOLLOW_UP" : "ALL";
+    const encodedEmail = encodeURIComponent(r.fromEmail);
+    feedItems.push({
+      type: "reply",
+      title: `Prospect Reply: ${r.fromEmail}`,
+      subtitle: `${r.campaign?.name || "Campaign"} · ${r.classification ? r.classification.replace("_", " ") : "Needs Response"}`,
+      date: new Date(r.receivedAt),
+      initial: (r.fromEmail || "R").charAt(0).toUpperCase(),
+      link: `/inbox?filter=${filterParam}&search=${encodedEmail}`,
     });
   }
 
@@ -363,6 +390,17 @@ export default async function Dashboard() {
                   {failedMailsCount}
                 </span>
               </div>
+              <div className="flex justify-between items-center text-sm">
+                <span className="text-text-muted">Total Replies</span>
+                <span className="font-medium text-text-primary flex items-center gap-1.5">
+                  {totalReplies}
+                  {unreadCount > 0 && (
+                    <span className="text-[10px] bg-primary-base/20 text-primary-base border border-primary-base/30 px-1.5 py-0.5 rounded-full font-semibold">
+                      {unreadCount} new
+                    </span>
+                  )}
+                </span>
+              </div>
             </div>
           </Card>
         </div>
@@ -453,9 +491,11 @@ export default async function Dashboard() {
                       className={`w-6 h-6 rounded-md flex items-center justify-center font-bold text-xs shrink-0 ${
                         item.type === "fix"
                           ? "bg-danger-bg text-danger-text"
-                          : item.type === "setup"
-                            ? "bg-primary/20 text-primary"
-                            : "bg-bg-subtle text-text-muted"
+                          : item.type === "reply"
+                            ? "bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30"
+                            : item.type === "setup"
+                              ? "bg-primary/20 text-primary"
+                              : "bg-bg-subtle text-text-muted"
                       }`}
                     >
                       {item.initial}
@@ -480,8 +520,21 @@ export default async function Dashboard() {
             <Card className="skeu-card p-2 border-none">
               <div className="flex flex-col">
                 <Link
+                  href="/inbox?filter=UNREAD"
+                  className="skeu-nav-item border-b border-border-subtle py-2.5 rounded-none bg-transparent hover:bg-bg-subtle"
+                >
+                  <MessageSquare size={14} />
+                  <span className="text-sm">Inbox</span>
+                  {unreadCount > 0 && (
+                    <span className="text-xs bg-primary-base/20 text-primary-base border border-primary-base/30 font-semibold px-2 py-0.5 rounded-full ml-2">
+                      {unreadCount} unread
+                    </span>
+                  )}
+                  <span className="text-text-muted ml-auto">&rarr;</span>
+                </Link>
+                <Link
                   href="/accounts"
-                  className="skeu-nav-item border-b border-border-subtle last:border-0 py-2.5 rounded-none bg-transparent hover:bg-bg-subtle"
+                  className="skeu-nav-item border-b border-border-subtle py-2.5 rounded-none bg-transparent hover:bg-bg-subtle"
                 >
                   <Users size={14} />
                   <span className="text-sm">Accounts</span>
@@ -489,7 +542,7 @@ export default async function Dashboard() {
                 </Link>
                 <Link
                   href="/settings"
-                  className="skeu-nav-item border-b border-border-subtle last:border-0 py-2.5 rounded-none bg-transparent hover:bg-bg-subtle"
+                  className="skeu-nav-item border-border-subtle py-2.5 rounded-none bg-transparent hover:bg-bg-subtle"
                 >
                   <Settings size={14} />
                   <span className="text-sm">Settings</span>

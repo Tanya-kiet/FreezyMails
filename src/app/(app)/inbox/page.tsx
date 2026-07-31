@@ -35,6 +35,7 @@ import {
 import { Drawer } from "@/components/ui/drawer";
 import EmailDetailDrawer from "./_components/EmailDetailDrawer";
 import { toast } from "sonner";
+import { useSearchParams } from "next/navigation";
 
 const PAGE_SIZE = 25;
 
@@ -131,6 +132,7 @@ const InboxRow = memo(function InboxRow({
 });
 
 export default function InboxPage() {
+  const searchParams = useSearchParams();
   const searchQuery = useInboxStore((s) => s.searchQuery);
   const setSearchQuery = useInboxStore((s) => s.setSearchQuery);
   const filterType = useInboxStore((s) => s.filterType);
@@ -138,6 +140,39 @@ export default function InboxPage() {
 
   const [localSearch, setLocalSearch] = useState(searchQuery);
   const [debouncedSearch, setDebouncedSearch] = useState(searchQuery);
+
+  const filterParam = searchParams.get("filter");
+  const searchParam = searchParams.get("search");
+
+  const [prevParams, setPrevParams] = useState<{
+    filter: string | null;
+    search: string | null;
+  }>({
+    filter: null,
+    search: null,
+  });
+
+  if (
+    (filterParam !== null && prevParams.filter !== filterParam) ||
+    (searchParam !== null && prevParams.search !== searchParam)
+  ) {
+    setPrevParams({ filter: filterParam, search: searchParam });
+    if (filterParam) {
+      setFilterType(
+        filterParam.toUpperCase() as
+          | "ALL"
+          | "UNREAD"
+          | "SENT"
+          | "RECEIVED"
+          | "FOLLOW_UP"
+      );
+    }
+    if (searchParam) {
+      setLocalSearch(searchParam);
+      setDebouncedSearch(searchParam);
+      setSearchQuery(searchParam);
+    }
+  }
 
   useEffect(() => {
     const timer = setTimeout(() => {
