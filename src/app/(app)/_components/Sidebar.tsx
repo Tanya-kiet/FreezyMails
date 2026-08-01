@@ -30,7 +30,6 @@ const navItems = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
   { href: "/campaigns", label: "Campaigns", icon: Mail },
   { href: "/inbox", label: "Inbox", icon: Inbox },
-  { href: "/sent-mails", label: "Sent Mails", icon: Send },
   { href: "/audience", label: "Mailing Lists", icon: Users },
   { href: "/templates", label: "Templates", icon: FileText },
   { href: "/accounts", label: "Accounts", icon: Server },
