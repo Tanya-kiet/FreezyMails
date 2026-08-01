@@ -28,28 +28,35 @@ export async function PUT(
       return NextResponse.json({ error: "Invalid data format" }, { status: 400 });
     }
 
-    const upsertPromises = contacts
-      .filter((contact: { email?: string }) => contact.email)
-      .map((contact: { email: string; customFields?: Prisma.InputJsonObject }) =>
-        prisma.contact.upsert({
-          where: {
-            mailingListId_email: {
-              mailingListId: id,
-              email: contact.email,
-            },
-          },
-          update: {
-            customFields: contact.customFields || {},
-          },
-          create: {
-            mailingListId: id,
-            email: contact.email,
-            customFields: contact.customFields || {},
-          },
-        })
-      );
+    const validContacts = contacts.filter(
+      (contact: { email?: string }) => contact.email
+    ) as { email: string; customFields?: Prisma.InputJsonObject }[];
 
-    const results = await prisma.$transaction(upsertPromises);
+    const results = await prisma.$transaction(
+      async (tx) => {
+        return Promise.all(
+          validContacts.map((contact) =>
+            tx.contact.upsert({
+              where: {
+                mailingListId_email: {
+                  mailingListId: id,
+                  email: contact.email,
+                },
+              },
+              update: {
+                customFields: contact.customFields || {},
+              },
+              create: {
+                mailingListId: id,
+                email: contact.email,
+                customFields: contact.customFields || {},
+              },
+            })
+          )
+        );
+      },
+      { timeout: 60000 }
+    );
 
     return NextResponse.json({ success: true, contacts: results });
   } catch (_error: unknown) { const error = _error as Error;
