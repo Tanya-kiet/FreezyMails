@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { getUser } from "@/lib/supabase";
+import { Prisma } from "@prisma/client";
 
 export async function PUT(
   req: NextRequest,
@@ -27,35 +28,28 @@ export async function PUT(
       return NextResponse.json({ error: "Invalid data format" }, { status: 400 });
     }
 
-    // We can do this in a transaction with an extended timeout
-    const results = await prisma.$transaction(
-      async (tx) => {
-        const processed = [];
-        for (const contact of contacts) {
-          if (!contact.email) continue;
-
-          const upserted = await tx.contact.upsert({
-            where: {
-              mailingListId_email: {
-                mailingListId: id,
-                email: contact.email,
-              },
-            },
-            update: {
-              customFields: contact.customFields || {},
-            },
-            create: {
+    const upsertPromises = contacts
+      .filter((contact: { email?: string }) => contact.email)
+      .map((contact: { email: string; customFields?: Prisma.InputJsonObject }) =>
+        prisma.contact.upsert({
+          where: {
+            mailingListId_email: {
               mailingListId: id,
               email: contact.email,
-              customFields: contact.customFields || {},
             },
-          });
-          processed.push(upserted);
-        }
-        return processed;
-      },
-      { timeout: 60000, maxWait: 10000 },
-    );
+          },
+          update: {
+            customFields: contact.customFields || {},
+          },
+          create: {
+            mailingListId: id,
+            email: contact.email,
+            customFields: contact.customFields || {},
+          },
+        })
+      );
+
+    const results = await prisma.$transaction(upsertPromises);
 
     return NextResponse.json({ success: true, contacts: results });
   } catch (_error: unknown) { const error = _error as Error;
