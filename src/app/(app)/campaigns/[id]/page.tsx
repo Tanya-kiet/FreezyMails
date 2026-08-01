@@ -36,6 +36,7 @@ import {
   getFileIcon,
 } from "@/components/ui/attachment";
 import AddRecipientsModal from "./_components/AddRecipientsModal";
+import EditAccountsDrawer from "./_components/EditAccountsDrawer";
 
 interface CampaignAttachment {
   filename: string;
@@ -92,6 +93,7 @@ interface CampaignProgress {
   total: number;
   sent: number;
   failed: number;
+  bounced?: number;
   pending: number;
 }
 
@@ -105,6 +107,7 @@ export default function CampaignPage() {
   const importListId = searchParams.get("importList");
   const [isAddRecipientsOpen, setIsAddRecipientsOpen] =
     useState(!!importListId);
+  const [isEditAccountsOpen, setIsEditAccountsOpen] = useState(false);
 
   const { data, isLoading: loading } = useQuery<CampaignData>({
     queryKey: ["campaign", id],
@@ -333,7 +336,7 @@ export default function CampaignPage() {
             )}
             {data.status === "DONE" && (
               <>
-                {(progress?.failed || 0) > 0 && (
+                {((progress?.failed || 0) + (progress?.bounced || 0)) > 0 && (
                   <Button
                     variant="ghost"
                     onClick={() => handleAction("resendFailed")}
@@ -341,7 +344,7 @@ export default function CampaignPage() {
                     className="text-danger-text border-danger-text/20 hover:bg-danger-bg"
                     isLoading={loadingAction === "resendFailed"}
                   >
-                    Resend Failed ({progress?.failed})
+                    Resend Failed / Bounced ({(progress?.failed || 0) + (progress?.bounced || 0)})
                   </Button>
                 )}
               </>
@@ -358,7 +361,7 @@ export default function CampaignPage() {
         </div>
 
         {/* STATS ROW */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+        <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
           <div className="skeu-stat-card flex flex-col justify-center">
             <div className="label">TOTAL RECIPIENTS</div>
             <div className="value">{progress?.total ?? 0}</div>
@@ -374,7 +377,7 @@ export default function CampaignPage() {
             </div>
           </div>
           <div className="skeu-stat-card flex flex-col justify-center">
-            <div className="label">FAILED / BOUNCED</div>
+            <div className="label">FAILED</div>
             <div className="value">{progress?.failed ?? 0}</div>
             <div
               className={`sub font-semibold ${
@@ -386,6 +389,21 @@ export default function CampaignPage() {
               {progress && progress.total > 0
                 ? `${Math.round((progress.failed / progress.total) * 100)}% error rate`
                 : "0% error rate"}
+            </div>
+          </div>
+          <div className="skeu-stat-card flex flex-col justify-center">
+            <div className="label">BOUNCED</div>
+            <div className="value">{progress?.bounced ?? 0}</div>
+            <div
+              className={`sub font-semibold ${
+                progress && (progress.bounced ?? 0) > 0
+                  ? "text-amber-500"
+                  : "text-text-muted"
+              }`}
+            >
+              {progress && progress.total > 0
+                ? `${Math.round(((progress.bounced ?? 0) / progress.total) * 100)}% bounce rate`
+                : "0% bounce rate"}
             </div>
           </div>
           <div className="skeu-stat-card flex flex-col justify-center">
@@ -412,7 +430,8 @@ export default function CampaignPage() {
                     </span>
                     <span>
                       {Math.round(
-                        ((progress.sent + progress.failed) / progress.total) *
+                        ((progress.sent + progress.failed + (progress.bounced || 0)) /
+                          progress.total) *
                           100,
                       ) || 0}
                       %
@@ -423,7 +442,7 @@ export default function CampaignPage() {
                       style={{
                         width: `${
                           Math.round(
-                            ((progress.sent + progress.failed) /
+                            ((progress.sent + progress.failed + (progress.bounced || 0)) /
                               progress.total) *
                               100,
                           ) || 0
@@ -431,12 +450,15 @@ export default function CampaignPage() {
                       }}
                     ></div>
                   </div>
-                  <div className="flex gap-4 text-sm font-semibold">
+                  <div className="flex flex-wrap gap-4 text-sm font-semibold">
                     <span className="text-success-text">
                       {progress.sent} Sent
                     </span>
                     <span className="text-danger-text">
                       {progress.failed} Failed
+                    </span>
+                    <span className="text-amber-500">
+                      {progress.bounced ?? 0} Bounced
                     </span>
                     <span className="text-text-muted">
                       {progress.pending} Pending
@@ -593,7 +615,8 @@ export default function CampaignPage() {
                         <option value="ALL">All Statuses</option>
                         <option value="PENDING">Pending</option>
                         <option value="SENT">Sent Successfully</option>
-                        <option value="FAILED">Failed / Bounced</option>
+                        <option value="FAILED">Failed</option>
+                        <option value="BOUNCED">Bounced</option>
                       </select>
                     </div>
                   </div>
@@ -672,7 +695,9 @@ export default function CampaignPage() {
                                       ? "skeu-badge-sent"
                                       : recipient.status === "PENDING"
                                         ? "skeu-badge-pending"
-                                        : "skeu-badge-failed"
+                                        : recipient.status === "BOUNCED"
+                                          ? "skeu-badge-warning"
+                                          : "skeu-badge-failed"
                                   }`}
                                 >
                                   {recipient.status}
@@ -742,10 +767,20 @@ export default function CampaignPage() {
                 <div className="border-t border-border-subtle my-2"></div>
 
                 <div>
-                  <span className="text-text-muted text-sm flex items-center gap-1.5 mb-2">
-                    <Mail size={14} /> Sender Accounts (
-                    {data.emailAccounts?.length || 0})
-                  </span>
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-text-muted text-sm flex items-center gap-1.5">
+                      <Mail size={14} /> Sender Accounts (
+                      {data.emailAccounts?.length || 0})
+                    </span>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => setIsEditAccountsOpen(true)}
+                      className="h-7 text-xs px-2 gap-1 text-primary-base hover:text-primary-base hover:bg-primary-base/10"
+                    >
+                      <Edit size={12} /> Update
+                    </Button>
+                  </div>
                   {data.emailAccounts && data.emailAccounts.length > 0 ? (
                     <div className="space-y-2">
                       {data.emailAccounts.map((account) => (
@@ -851,33 +886,45 @@ export default function CampaignPage() {
       </div>
 
       {data && (
-        <AddRecipientsModal
-          isOpen={isAddRecipientsOpen}
-          onClose={() => {
-            setIsAddRecipientsOpen(false);
-            if (importListId) {
-              const url = new URL(window.location.href);
-              url.searchParams.delete("importList");
-              router.replace(url.toString(), { scroll: false });
-            }
-          }}
-          campaignId={id}
-          templateVariables={
-            (data.template?.variables as Array<string | { name: string; fallback?: string }>) ||
-            Array.from(
-              new Set(
-                [...(data.template?.body.matchAll(/\{\{([^}]+)\}\}/g) || [])].map(
-                  (m) => m[1],
+        <>
+          <AddRecipientsModal
+            isOpen={isAddRecipientsOpen}
+            onClose={() => {
+              setIsAddRecipientsOpen(false);
+              if (importListId) {
+                const url = new URL(window.location.href);
+                url.searchParams.delete("importList");
+                router.replace(url.toString(), { scroll: false });
+              }
+            }}
+            campaignId={id}
+            templateVariables={
+              (data.template?.variables as Array<string | { name: string; fallback?: string }>) ||
+              Array.from(
+                new Set(
+                  [...(data.template?.body.matchAll(/\{\{([^}]+)\}\}/g) || [])].map(
+                    (m) => m[1],
+                  ),
                 ),
-              ),
-            )
-          }
-          onSuccess={() => {
-            invalidateCampaign();
-            fetchRecipients();
-          }}
-          importListId={importListId}
-        />
+              )
+            }
+            onSuccess={() => {
+              invalidateCampaign();
+              fetchRecipients();
+            }}
+            importListId={importListId}
+          />
+          <EditAccountsDrawer
+            isOpen={isEditAccountsOpen}
+            onClose={() => setIsEditAccountsOpen(false)}
+            campaignId={id}
+            currentAccounts={data.emailAccounts || []}
+            campaignStatus={data.status}
+            onSuccess={() => {
+              invalidateCampaign();
+            }}
+          />
+        </>
       )}
     </div>
   );

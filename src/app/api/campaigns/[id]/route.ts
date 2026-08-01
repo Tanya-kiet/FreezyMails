@@ -67,7 +67,7 @@ export async function PATCH(request: Request, props: { params: Promise<{ id: str
 
   try {
     const body = await request.json()
-    const { name, dailyLimit, pacingType, scheduledAt } = body
+    const { name, dailyLimit, pacingType, scheduledAt, emailAccountIds } = body
 
     const campaign = await prisma.campaign.findUnique({
       where: { id: params.id, userId: user.id }
@@ -77,13 +77,47 @@ export async function PATCH(request: Request, props: { params: Promise<{ id: str
       return NextResponse.json({ error: 'Not found' }, { status: 404 })
     }
 
+    if (emailAccountIds !== undefined) {
+      if (campaign.status === 'SENDING') {
+        return NextResponse.json({ error: 'Campaign must be paused or ended before updating sender accounts.' }, { status: 400 })
+      }
+      if (!Array.isArray(emailAccountIds) || emailAccountIds.length === 0) {
+        return NextResponse.json({ error: 'At least one sender account is required.' }, { status: 400 })
+      }
+
+      const validAccounts = await prisma.emailAccount.findMany({
+        where: { id: { in: emailAccountIds }, userId: user.id },
+        select: { id: true }
+      })
+
+      if (validAccounts.length !== emailAccountIds.length) {
+        return NextResponse.json({ error: 'Invalid email accounts selected.' }, { status: 400 })
+      }
+    }
+
     const updated = await prisma.campaign.update({
       where: { id: params.id },
       data: {
         ...(name !== undefined && { name }),
         ...(dailyLimit !== undefined && { dailyLimit }),
         ...(pacingType !== undefined && { pacingType }),
-        ...(scheduledAt !== undefined && { scheduledAt: scheduledAt ? new Date(scheduledAt) : null })
+        ...(scheduledAt !== undefined && { scheduledAt: scheduledAt ? new Date(scheduledAt) : null }),
+        ...(emailAccountIds !== undefined && {
+          emailAccounts: {
+            set: emailAccountIds.map((accId: string) => ({ id: accId }))
+          }
+        })
+      },
+      include: {
+        emailAccounts: {
+          select: {
+            id: true,
+            label: true,
+            fromEmail: true,
+            provider: true,
+            isActive: true,
+          }
+        }
       }
     })
 

@@ -25,12 +25,14 @@ export async function GET(request: Request, props: { params: Promise<{ id: strin
   let total = 0
   let sent = 0
   let failed = 0
+  let bounced = 0
   let pending = 0
 
   aggregates.forEach(agg => {
     total += agg._count._all
     if (agg.status === 'SENT') sent += agg._count._all
-    else if (agg.status === 'FAILED' || agg.status === 'BOUNCED') failed += agg._count._all
+    else if (agg.status === 'FAILED') failed += agg._count._all
+    else if (agg.status === 'BOUNCED') bounced += agg._count._all
     else if (agg.status === 'PENDING') pending += agg._count._all
   })
 
@@ -52,6 +54,7 @@ export async function GET(request: Request, props: { params: Promise<{ id: strin
     total,
     sent,
     failed,
+    bounced,
     pending,
   })
 }
