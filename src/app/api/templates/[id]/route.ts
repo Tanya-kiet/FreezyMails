@@ -66,15 +66,25 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
       }
     });
 
-    const template = await prisma.template.update({
-      where: { id, userId: user.id },
-      data: {
-        name: data.name,
-        subject: data.subject,
-        body: data.body,
-        variables: variables,
-        attachments: data.attachments || [],
-      }
+    const template = await prisma.$transaction(async (tx) => {
+      const updatedTemplate = await tx.template.update({
+        where: { id, userId: user.id },
+        data: {
+          name: data.name,
+          subject: data.subject,
+          body: data.body,
+          variables: variables,
+          attachments: data.attachments || [],
+        }
+      })
+
+      // Update all associated A/B Template Variants to match the new body
+      await tx.aBTemplateVariant.updateMany({
+        where: { templateId: id },
+        data: { body: data.body }
+      })
+
+      return updatedTemplate
     })
 
     return NextResponse.json(template)
