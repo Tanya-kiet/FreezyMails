@@ -278,25 +278,26 @@ export default function AudienceDetailPage() {
       const updated = prev.map((c) => {
         if (c.id === contactId) {
           if (field === "email") {
-            return { ...c, email: value, isNew: false };
+            return { ...c, email: value };
           } else {
             return {
               ...c,
               customFields: { ...c.customFields, [field]: value },
-              isNew: false,
             };
           }
         }
         return c;
       });
 
-      // If the last row was modified, add a new empty row
-      const lastRow = updated[updated.length - 1];
-      const isLastRowEmpty =
-        lastRow.email === "" &&
-        Object.values(lastRow.customFields).every((v) => v === "");
+      // Only add a new empty placeholder if none already exists
+      const hasEmptyPlaceholder = updated.some(
+        (c) =>
+          c.isNew &&
+          c.email === "" &&
+          Object.values(c.customFields).every((v) => v === ""),
+      );
 
-      if (!isLastRowEmpty) {
+      if (!hasEmptyPlaceholder) {
         updated.push({
           id: `new-placeholder-${Date.now()}`,
           email: "",
@@ -684,19 +685,23 @@ export default function AudienceDetailPage() {
     }
   });
 
-  // Separate regular contacts and the new contact row
+  // Separate regular contacts and the new contact rows
   const allRegularContacts = filteredContacts.filter((c) => !c.isNew);
-  // Float newly-typed (client-generated ID) contacts to the top so they're always visible
+  // Float web-imported (client-generated ID, isNew:false) contacts to the top
   const unsavedContacts = allRegularContacts.filter((c) => isClientGeneratedId(c.id));
   const savedContacts = allRegularContacts.filter((c) => !isClientGeneratedId(c.id));
   const regularContacts = [...unsavedContacts, ...savedContacts];
 
-  const newContactRow = contacts.find(
-    (c) =>
-      c.isNew &&
-      c.email === "" &&
-      Object.values(c.customFields).every((v) => v === ""),
+  // isNew contacts: one empty placeholder at top + any contacts currently being typed
+  const isNewContacts = contacts.filter((c) => c.isNew);
+  const emptyPlaceholder = isNewContacts.find(
+    (c) => c.email === "" && Object.values(c.customFields).every((v) => v === ""),
   ) || { id: "new-placeholder", email: "", customFields: {}, isNew: true };
+  const typingRows = isNewContacts.filter(
+    (c) =>
+      c.id !== emptyPlaceholder.id &&
+      (c.email !== "" || Object.values(c.customFields).some((v) => v !== "")),
+  );
 
   // Pagination math on regular contacts
   const totalItems = regularContacts.length;
@@ -706,8 +711,8 @@ export default function AudienceDetailPage() {
   const endIndex = Math.min(startIndex + pageSize, totalItems);
   const paginatedContacts = regularContacts.slice(startIndex, endIndex);
 
-  // Show the new row at the top of every page
-  const displayContacts = [newContactRow, ...paginatedContacts];
+  // Empty placeholder at top, typing rows below it, then paginated saved contacts
+  const displayContacts = [emptyPlaceholder, ...typingRows, ...paginatedContacts];
 
   return (
     <TooltipProvider>
