@@ -166,6 +166,7 @@ export default function AudienceDetailPage() {
   const [isImportModalOpen, setIsImportModalOpen] = useState(false);
 
   const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const dirtyIds = useRef<Set<string>>(new Set());
 
   const queryClient = useQueryClient();
 
@@ -209,12 +210,25 @@ export default function AudienceDetailPage() {
     ]);
   }
 
+  const isClientGeneratedId = (id: string) =>
+    String(id).startsWith("new-") || String(id).startsWith("web-");
+
   const batchSave = async (currentContacts: Contact[]) => {
     if (saving) return;
     setSaving(true);
 
-    // Filter out rows that are entirely empty (no email)
-    const validContacts = currentContacts.filter((c) => c.email.trim() !== "");
+    // Only send rows that were changed or are brand-new (not yet in DB)
+    const validContacts = currentContacts.filter(
+      (c) =>
+        c.email.trim() !== "" &&
+        (dirtyIds.current.has(c.id) || isClientGeneratedId(c.id))
+    );
+
+    if (validContacts.length === 0) {
+      setIsDirty(false);
+      setSaving(false);
+      return;
+    }
 
     try {
       const res = await fetch(`/api/lists/${id}/contacts/batch`, {
@@ -228,9 +242,10 @@ export default function AudienceDetailPage() {
       }
 
       toast.success("Changes saved");
+      dirtyIds.current.clear();
       setIsDirty(false);
 
-      // Update local IDs with database IDs, re-fetch to ensure sync
+      // Re-fetch to replace client-generated IDs with real DB IDs
       refetchList();
     } catch (error) {
       toast.error("Failed to save. Please try again.");
@@ -291,6 +306,7 @@ export default function AudienceDetailPage() {
 
       return updated;
     });
+    dirtyIds.current.add(contactId);
     setIsDirty(true);
   };
 
@@ -674,11 +690,8 @@ export default function AudienceDetailPage() {
   const endIndex = Math.min(startIndex + pageSize, totalItems);
   const paginatedContacts = regularContacts.slice(startIndex, endIndex);
 
-  // Append the new row at the bottom if we're on the last page so adding contacts is seamless
-  const displayContacts =
-    safePage === totalPages
-      ? [...paginatedContacts, newContactRow]
-      : paginatedContacts;
+  // Show the new row at the top of every page
+  const displayContacts = [newContactRow, ...paginatedContacts];
 
   return (
     <TooltipProvider>

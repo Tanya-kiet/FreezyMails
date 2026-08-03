@@ -3,6 +3,26 @@ import prisma from "@/lib/prisma";
 import { getUser } from "@/lib/supabase";
 import { Prisma } from "@prisma/client";
 
+const CHUNK_SIZE = 500;
+
+async function upsertChunk(
+  chunk: { email: string; customFields?: Prisma.InputJsonObject }[],
+  listId: string
+) {
+  const values = chunk.map((c) =>
+    Prisma.sql`(gen_random_uuid(), ${listId}, ${c.email}, ${JSON.stringify(c.customFields ?? {})}::jsonb, now(), now())`
+  );
+
+  await prisma.$executeRaw`
+    INSERT INTO "Contact" ("id", "mailingListId", "email", "customFields", "createdAt", "updatedAt")
+    VALUES ${Prisma.join(values)}
+    ON CONFLICT ("mailingListId", "email")
+    DO UPDATE SET
+      "customFields" = EXCLUDED."customFields",
+      "updatedAt"    = now()
+  `;
+}
+
 export async function PUT(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
@@ -12,7 +32,6 @@ export async function PUT(
     const user = await getUser();
     if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-    // Ensure list belongs to user
     const list = await prisma.mailingList.findFirst({
       where: { id: id, userId: user.id },
     });
@@ -22,7 +41,7 @@ export async function PUT(
     }
 
     const body = await req.json();
-    const { contacts } = body; 
+    const { contacts } = body;
 
     if (!Array.isArray(contacts)) {
       return NextResponse.json({ error: "Invalid data format" }, { status: 400 });
@@ -32,34 +51,14 @@ export async function PUT(
       (contact: { email?: string }) => contact.email
     ) as { email: string; customFields?: Prisma.InputJsonObject }[];
 
-    const results = await prisma.$transaction(
-      async (tx) => {
-        return Promise.all(
-          validContacts.map((contact) =>
-            tx.contact.upsert({
-              where: {
-                mailingListId_email: {
-                  mailingListId: id,
-                  email: contact.email,
-                },
-              },
-              update: {
-                customFields: contact.customFields || {},
-              },
-              create: {
-                mailingListId: id,
-                email: contact.email,
-                customFields: contact.customFields || {},
-              },
-            })
-          )
-        );
-      },
-      { timeout: 60000 }
-    );
+    // Process in chunks sequentially — no transaction, no timeout risk
+    for (let i = 0; i < validContacts.length; i += CHUNK_SIZE) {
+      await upsertChunk(validContacts.slice(i, i + CHUNK_SIZE), id);
+    }
 
-    return NextResponse.json({ success: true, contacts: results });
-  } catch (_error: unknown) { const error = _error as Error;
+    return NextResponse.json({ success: true, count: validContacts.length });
+  } catch (_error: unknown) {
+    const error = _error as Error;
     console.error("Error in batch contacts:", error);
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
