@@ -473,6 +473,21 @@ export default function EmailDetailDrawer({
               </div>
             </div>
           </div>
+
+          {isSent && (opens > 0 || clicks > 0) && (
+            <div className="flex items-center gap-4 pt-3 border-t border-border-subtle/60">
+              <div className="flex items-center gap-1.5 text-xs">
+                <span className="w-2 h-2 rounded-full bg-green-500 inline-block" />
+                <span className="text-text-muted">Opens:</span>
+                <span className="font-semibold text-text-primary">{opens}</span>
+              </div>
+              <div className="flex items-center gap-1.5 text-xs">
+                <span className="w-2 h-2 rounded-full bg-blue-500 inline-block" />
+                <span className="text-text-muted">Clicks:</span>
+                <span className="font-semibold text-text-primary">{clicks}</span>
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Email Body Card */}

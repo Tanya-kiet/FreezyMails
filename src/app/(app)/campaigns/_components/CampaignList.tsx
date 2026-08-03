@@ -43,6 +43,7 @@ interface CalculatedCampaign {
   stats: {
     sent: number;
     opens: number;
+    clicks: number;
     replies: number;
     lastSentAt: string | null;
   };
@@ -254,6 +255,12 @@ export default function CampaignList({
                   Sent
                 </TableHead>
                 <TableHead className="font-semibold text-text-primary">
+                  Opens
+                </TableHead>
+                <TableHead className="font-semibold text-text-primary">
+                  Clicks
+                </TableHead>
+                <TableHead className="font-semibold text-text-primary">
                   Replies
                 </TableHead>
                 <TableHead className="font-semibold text-text-primary">
@@ -296,6 +303,8 @@ export default function CampaignList({
                     </span>
                   </TableCell>
                   <TableCell>{c.stats.sent}</TableCell>
+                  <TableCell>{c.stats.opens}</TableCell>
+                  <TableCell>{c.stats.clicks}</TableCell>
                   <TableCell>{c.stats.replies}</TableCell>
                   <TableCell className="text-text-muted">
                     {c.stats.lastSentAt

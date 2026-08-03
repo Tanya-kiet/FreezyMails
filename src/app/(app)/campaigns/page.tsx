@@ -15,6 +15,7 @@ export default async function CampaignsPage() {
     stats: {
       sent: number;
       opens: number;
+      clicks: number;
       replies: number;
       lastSentAt: string | null;
     };
@@ -63,6 +64,7 @@ export default async function CampaignsPage() {
 
       const eventSentMap = new Map<string, number>();
       const opensMap = new Map<string, number>();
+      const clicksMap = new Map<string, number>();
       const repliesMap = new Map<string, number>();
 
       mailEventStats.forEach((ev) => {
@@ -70,6 +72,8 @@ export default async function CampaignsPage() {
           eventSentMap.set(ev.campaignId, (eventSentMap.get(ev.campaignId) || 0) + ev._count._all);
         } else if (ev.type === "OPENED") {
           opensMap.set(ev.campaignId, (opensMap.get(ev.campaignId) || 0) + ev._count._all);
+        } else if (ev.type === "CLICKED") {
+          clicksMap.set(ev.campaignId, (clicksMap.get(ev.campaignId) || 0) + ev._count._all);
         } else if (ev.type === "REPLIED") {
           repliesMap.set(ev.campaignId, (repliesMap.get(ev.campaignId) || 0) + ev._count._all);
         }
@@ -97,10 +101,15 @@ export default async function CampaignsPage() {
           stats: {
             sent: finalSent,
             opens: opensMap.get(c.id) || 0,
+            clicks: clicksMap.get(c.id) || 0,
             replies: repliesMap.get(c.id) || 0,
             lastSentAt: lastSentAt ? lastSentAt.toISOString() : null,
           },
         };
+      }).sort((a, b) => {
+        const aTime = a.stats.lastSentAt ? new Date(a.stats.lastSentAt).getTime() : new Date(a.createdAt).getTime();
+        const bTime = b.stats.lastSentAt ? new Date(b.stats.lastSentAt).getTime() : new Date(b.createdAt).getTime();
+        return bTime - aTime;
       });
     }
   } catch (error) {
