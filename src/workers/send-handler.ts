@@ -127,7 +127,7 @@ export async function handleSendEmail(jobOrJobs: Job<SendEmailData> | Job<SendEm
       const renderedBody = renderTemplate(bodyTemplate, dynamicData, templateFallbacks)
       const renderedSubject = renderTemplate(subject, dynamicData, templateFallbacks)
       
-      const appUrl = (process.env.NEXT_PUBLIC_APP_URL || process.env.APP_URL || '').replace(/\/$/, '')
+      const appUrl = (process.env.NEXT_PUBLIC_APP_URL || process.env.APP_URL || 'https://freezymails.vercel.app').replace(/\/$/, '')
       const finalBody = wrapLinksForTracking(renderedBody, recipient.id, appUrl)
       
       const pixelUrl = `${appUrl}/api/track/open/${recipient.id}`

@@ -39,7 +39,7 @@ export async function POST(request: Request) {
     const renderedSubject = renderTemplate(subject, dynamicData)
     const renderedBody = renderTemplate(emailBody, dynamicData)
 
-    const appUrl = (process.env.NEXT_PUBLIC_APP_URL || process.env.APP_URL || '').replace(/\/$/, '')
+    const appUrl = (process.env.NEXT_PUBLIC_APP_URL || process.env.APP_URL || 'https://freezymails.vercel.app').replace(/\/$/, '')
     const finalBody = wrapLinksForTracking(renderedBody, recipient.id, appUrl)
     const trackingPixelUrl = `${appUrl}/api/track/open/${recipient.id}`
 
