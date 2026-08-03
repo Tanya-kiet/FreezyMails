@@ -130,6 +130,7 @@ export default function AudienceDetailPage() {
   const [extractedWebRows, setExtractedWebRows] = useState<ExtractedWebRow[]>(
     [],
   );
+  const [importFallbacks, setImportFallbacks] = useState(false);
 
   // Column Mapping state for Web Import
   const [companyColMapping, setCompanyColMapping] =
@@ -490,6 +491,15 @@ export default function AudienceDetailPage() {
   const confirmAndImportWebData = async () => {
     if (extractedWebRows.length === 0) return;
 
+    const rowsToImport = importFallbacks
+      ? extractedWebRows
+      : extractedWebRows.filter((r) => !r.isFallback);
+
+    if (rowsToImport.length === 0) {
+      toast.error("No contacts to import. Enable 'Import fallback contacts' to include them.");
+      return;
+    }
+
     const updatedColumns = [...columns];
     let targetCompanyCol = companyColMapping;
     let targetNameCol = nameColMapping;
@@ -515,7 +525,7 @@ export default function AudienceDetailPage() {
     setColumns(updatedColumns);
 
     // Build contact rows
-    const newContactItems: Contact[] = extractedWebRows.map((row, idx) => {
+    const newContactItems: Contact[] = rowsToImport.map((row, idx) => {
       const customFields: Record<string, string> = {};
 
       if (targetCompanyCol && targetCompanyCol !== "none") {
@@ -565,6 +575,7 @@ export default function AudienceDetailPage() {
     setIsWebImportOpen(false);
     setExtractedWebRows([]);
     setWebUrlsInput("");
+    setImportFallbacks(false);
     toast.success(
       `Imported ${newContactItems.length} contacts into table! Saving...`,
     );
@@ -674,7 +685,12 @@ export default function AudienceDetailPage() {
   });
 
   // Separate regular contacts and the new contact row
-  const regularContacts = filteredContacts.filter((c) => !c.isNew);
+  const allRegularContacts = filteredContacts.filter((c) => !c.isNew);
+  // Float newly-typed (client-generated ID) contacts to the top so they're always visible
+  const unsavedContacts = allRegularContacts.filter((c) => isClientGeneratedId(c.id));
+  const savedContacts = allRegularContacts.filter((c) => !isClientGeneratedId(c.id));
+  const regularContacts = [...unsavedContacts, ...savedContacts];
+
   const newContactRow = contacts.find(
     (c) =>
       c.isNew &&
@@ -1453,10 +1469,33 @@ export default function AudienceDetailPage() {
                     </div>
                   </div>
 
+                  {/* Fallback Toggle */}
+                  <label className="flex items-center gap-2.5 cursor-pointer select-none p-2.5 rounded-lg border border-border-subtle bg-bg-base/50 hover:bg-bg-base transition-colors">
+                    <input
+                      type="checkbox"
+                      checked={importFallbacks}
+                      onChange={(e) => setImportFallbacks(e.target.checked)}
+                      className="h-4 w-4 rounded accent-primary-base cursor-pointer"
+                    />
+                    <div>
+                      <p className="text-xs font-medium text-text-primary">
+                        Import fallback contacts
+                      </p>
+                      <p className="text-[11px] text-text-muted">
+                        Fallbacks are generic emails (info@, contact@) found when no direct contact was detected.
+                        {" "}{extractedWebRows.filter((r) => r.isFallback).length > 0 && (
+                          <span className="font-semibold text-amber-600 dark:text-amber-400">
+                            {extractedWebRows.filter((r) => r.isFallback).length} fallback{extractedWebRows.filter((r) => r.isFallback).length !== 1 ? "s" : ""} detected.
+                          </span>
+                        )}
+                      </p>
+                    </div>
+                  </label>
+
                   {/* Preview Table */}
                   <div className="space-y-2">
                     <h4 className="text-xs font-semibold uppercase tracking-wider text-text-muted px-1">
-                      Previewing Extracted Contacts ({extractedWebRows.length})
+                      Previewing Extracted Contacts ({importFallbacks ? extractedWebRows.length : extractedWebRows.filter((r) => !r.isFallback).length})
                     </h4>
                     <div className="border border-border-subtle rounded-lg overflow-hidden max-h-72 overflow-y-auto bg-bg-base">
                       <Table>
@@ -1485,8 +1524,13 @@ export default function AudienceDetailPage() {
                           </TableRow>
                         </TableHeader>
                         <TableBody>
-                          {extractedWebRows.map((row, idx) => (
-                            <TableRow key={idx}>
+                          {extractedWebRows
+                            .filter((r) => importFallbacks || !r.isFallback)
+                            .map((row, idx) => (
+                            <TableRow
+                              key={idx}
+                              className={row.isFallback ? "opacity-60" : ""}
+                            >
                               <TableCell className="font-mono text-xs font-medium">
                                 <div className="flex items-center gap-2">
                                   {row.email ? (

@@ -51,9 +51,17 @@ export async function PUT(
       (contact: { email?: string }) => contact.email
     ) as { email: string; customFields?: Prisma.InputJsonObject }[];
 
+    // Deduplicate by email — last occurrence wins (most recent edit)
+    // This prevents the "ON CONFLICT cannot affect row a second time" Postgres error
+    const deduped = Array.from(
+      validContacts
+        .reduce((map, c) => map.set(c.email.toLowerCase(), c), new Map<string, typeof validContacts[number]>())
+        .values()
+    );
+
     // Process in chunks sequentially — no transaction, no timeout risk
-    for (let i = 0; i < validContacts.length; i += CHUNK_SIZE) {
-      await upsertChunk(validContacts.slice(i, i + CHUNK_SIZE), id);
+    for (let i = 0; i < deduped.length; i += CHUNK_SIZE) {
+      await upsertChunk(deduped.slice(i, i + CHUNK_SIZE), id);
     }
 
     return NextResponse.json({ success: true, count: validContacts.length });
